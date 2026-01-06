@@ -20,7 +20,7 @@ const Index = () => {
                 <Pill className="w-6 h-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">MediCare</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Guardian</h1>
                 <p className="text-sm text-muted-foreground hidden sm:block">Your Health Companion</p>
               </div>
             </div>

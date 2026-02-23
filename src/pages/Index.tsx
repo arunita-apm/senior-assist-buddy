@@ -21,7 +21,7 @@ const Index = () => {
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Guardian</h1>
-                <p className="text-sm text-muted-foreground hidden sm:block">Your Health Companion</p>
+                <p className="text-sm text-muted-foreground hidden sm:block">Your Personal Health Tracker</p>
               </div>
             </div>
             <Bell className="w-8 h-8 text-primary cursor-pointer hover:scale-110 transition-transform" />
@@ -32,38 +32,38 @@ const Index = () => {
       <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-8 h-auto p-2 bg-card/60 backdrop-blur-sm">
-            <TabsTrigger 
-              value="dashboard" 
-              className="flex flex-col gap-2 py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
+            <TabsTrigger
+              value="dashboard"
+              className="flex flex-col gap-2 py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+
               <Activity className="w-5 h-5" />
               <span className="text-xs sm:text-sm font-medium">Dashboard</span>
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="medications"
-              className="flex flex-col gap-2 py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
+              className="flex flex-col gap-2 py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+
               <Pill className="w-5 h-5" />
               <span className="text-xs sm:text-sm font-medium">Medications</span>
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="appointments"
-              className="flex flex-col gap-2 py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
+              className="flex flex-col gap-2 py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+
               <Calendar className="w-5 h-5" />
               <span className="text-xs sm:text-sm font-medium">Appointments</span>
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="activity"
-              className="flex flex-col gap-2 py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
+              className="flex flex-col gap-2 py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+
               <Clock className="w-5 h-5" />
               <span className="text-xs sm:text-sm font-medium">Activity</span>
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="caregivers"
-              className="flex flex-col gap-2 py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
+              className="flex flex-col gap-2 py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+
               <Users className="w-5 h-5" />
               <span className="text-xs sm:text-sm font-medium">Caregivers</span>
             </TabsTrigger>
@@ -90,8 +90,8 @@ const Index = () => {
           </TabsContent>
         </Tabs>
       </main>
-    </div>
-  );
+    </div>);
+
 };
 
 export default Index;

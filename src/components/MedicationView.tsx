@@ -167,7 +167,7 @@ export const MedicationView = () => {
       <div className="grid gap-6">
         {medications.map((med) => (
           <Card key={med.id} className="overflow-hidden hover:shadow-lg transition-all">
-            <CardHeader className="bg-gradient-to-r from-primary/10 to-primary-glow/10 border-b">
+            <CardHeader className="bg-white border-b">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
                   <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center flex-shrink-0">

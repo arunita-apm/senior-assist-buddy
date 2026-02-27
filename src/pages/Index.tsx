@@ -4,6 +4,9 @@ import { DashboardView } from "@/components/DashboardView";
 import { MedicationView } from "@/components/MedicationView";
 import { AppointmentView } from "@/components/AppointmentView";
 import { ProfileView } from "@/components/ProfileView";
+import { ReminderActiveScreen } from "@/components/ReminderActiveScreen";
+import { VoicePanel } from "@/components/VoicePanel";
+import type { Reminder } from "@/lib/types";
 
 const tabs = [
   { id: "home", label: "Home", icon: Home },
@@ -16,12 +19,18 @@ type TabId = (typeof tabs)[number]["id"];
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<TabId>("home");
+  const [activeReminder, setActiveReminder] = useState<Reminder | null>(null);
+  const [voicePanelOpen, setVoicePanelOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Main content area — scrollable, with bottom padding for nav */}
       <main className="flex-1 overflow-y-auto pb-24 px-4 sm:px-6 py-6">
-        {activeTab === "home" && <DashboardView onNavigate={(tab) => setActiveTab(tab as TabId)} />}
+        {activeTab === "home" && (
+          <DashboardView
+            onNavigate={(tab) => setActiveTab(tab as TabId)}
+            onTestReminder={(r) => setActiveReminder(r)}
+          />
+        )}
         {activeTab === "medications" && <MedicationView />}
         {activeTab === "calendar" && <AppointmentView />}
         {activeTab === "profile" && <ProfileView />}
@@ -29,7 +38,7 @@ const Index = () => {
 
       {/* Floating mic FAB */}
       <button
-        onClick={() => alert("Voice agent coming soon")}
+        onClick={() => setVoicePanelOpen(true)}
         className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-14 h-14 rounded-full bg-accent text-accent-foreground flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform"
         aria-label="Voice assistant"
       >
@@ -57,9 +66,7 @@ const Index = () => {
                 />
                 <span
                   className={`text-xs transition-colors ${
-                    isActive
-                      ? "text-accent font-bold"
-                      : "text-muted-foreground font-normal"
+                    isActive ? "text-accent font-bold" : "text-muted-foreground font-normal"
                   }`}
                 >
                   {tab.label}
@@ -69,6 +76,19 @@ const Index = () => {
           })}
         </div>
       </nav>
+
+      {/* Reminder overlay */}
+      <ReminderActiveScreen
+        reminder={activeReminder}
+        onClose={() => setActiveReminder(null)}
+      />
+
+      {/* Voice panel */}
+      <VoicePanel
+        open={voicePanelOpen}
+        onClose={() => setVoicePanelOpen(false)}
+        onNavigate={(tab) => setActiveTab(tab as TabId)}
+      />
     </div>
   );
 };

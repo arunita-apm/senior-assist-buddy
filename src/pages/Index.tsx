@@ -21,7 +21,7 @@ const Index = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Main content area — scrollable, with bottom padding for nav */}
       <main className="flex-1 overflow-y-auto pb-24 px-4 sm:px-6 py-6">
-        {activeTab === "home" && <DashboardView />}
+        {activeTab === "home" && <DashboardView onNavigate={(tab) => setActiveTab(tab as TabId)} />}
         {activeTab === "medications" && <MedicationView />}
         {activeTab === "calendar" && <AppointmentView />}
         {activeTab === "profile" && <ProfileView />}

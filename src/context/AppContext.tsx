@@ -6,6 +6,7 @@ import {
   rescheduleReminder as rescheduleReminderUtil,
   getTodayStats as getTodayStatsUtil,
   getCurrentStreak,
+  generateTodayReminders,
 } from "@/lib/reminderUtils";
 
 interface AppContextValue extends AppState {
@@ -17,6 +18,10 @@ interface AppContextValue extends AppState {
   rescheduleReminder: (reminderId: string, delayMinutes: number) => string[];
   getTodayStats: () => ReturnType<typeof getTodayStatsUtil>;
   getCurrentStreak: () => number;
+  addMedication: (med: Medication) => void;
+  updateMedication: (med: Medication) => void;
+  deleteMedication: (medId: string) => void;
+  toggleMedicationActive: (medId: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -26,6 +31,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [medications, setMedications] = useState<Medication[]>(mockMedications);
   const [reminders, setReminders] = useState<Reminder[]>(mockReminders);
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+
+  const regenerateReminders = useCallback((newMeds: Medication[]) => {
+    const today = new Date().toISOString().split("T")[0];
+    setReminders((prev) => {
+      // Keep taken/rescheduled reminders, regenerate pending ones
+      const keptReminders = prev.filter(
+        (r) => r.date !== today || r.status === "taken" || r.status === "rescheduled"
+      );
+      const newTodayReminders = generateTodayReminders(newMeds).filter((nr) => {
+        // Don't recreate if already taken/rescheduled
+        return !keptReminders.some(
+          (kr) => kr.medicationId === nr.medicationId && kr.scheduledTime === nr.scheduledTime && kr.date === today
+        );
+      });
+      return [...keptReminders, ...newTodayReminders].sort((a, b) =>
+        a.scheduledTime.localeCompare(b.scheduledTime)
+      );
+    });
+  }, []);
+
+  const addMedication = useCallback((med: Medication) => {
+    setMedications((prev) => {
+      const next = [...prev, med];
+      regenerateReminders(next);
+      return next;
+    });
+  }, [regenerateReminders]);
+
+  const updateMedication = useCallback((med: Medication) => {
+    setMedications((prev) => {
+      const next = prev.map((m) => (m.id === med.id ? med : m));
+      regenerateReminders(next);
+      return next;
+    });
+  }, [regenerateReminders]);
+
+  const deleteMedication = useCallback((medId: string) => {
+    setMedications((prev) => {
+      const next = prev.filter((m) => m.id !== medId);
+      regenerateReminders(next);
+      return next;
+    });
+    // Also remove all reminders for this med
+    setReminders((prev) => prev.filter((r) => r.medicationId !== medId));
+  }, [regenerateReminders]);
+
+  const toggleMedicationActive = useCallback((medId: string) => {
+    setMedications((prev) => {
+      const next = prev.map((m) => (m.id === medId ? { ...m, isActive: !m.isActive } : m));
+      regenerateReminders(next);
+      return next;
+    });
+  }, [regenerateReminders]);
 
   const markReminderAsTaken = useCallback((reminderId: string) => {
     setReminders((prev) => markAsTakenUtil(reminderId, prev));
@@ -61,6 +119,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rescheduleReminder: rescheduleReminderAction,
         getTodayStats: todayStats,
         getCurrentStreak,
+        addMedication,
+        updateMedication,
+        deleteMedication,
+        toggleMedicationActive,
       }}
     >
       {children}

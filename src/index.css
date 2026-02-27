@@ -55,6 +55,8 @@ All colors MUST be HSL.
     --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.08);
     --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.12);
     
+    --nav-background: 215 30% 14%;
+    
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -114,6 +116,8 @@ All colors MUST be HSL.
     
     --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.3);
     --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.4);
+    
+    --nav-background: 215 30% 12%;
   }
 }
 

@@ -1,132 +1,142 @@
-import { useMemo } from "react";
-import { CheckCircle2, Clock, AlertTriangle, Flame } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { useAppContext } from "@/context/AppContext";
-import { format } from "date-fns";
 
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
-}
+const mockMedications = [
+  { id: 1, name: "Lisinopril", dosage: "10mg", time: "8:00 AM", status: "taken" },
+  { id: 2, name: "Metformin", dosage: "500mg", time: "2:00 PM", status: "pending" },
+  { id: 3, name: "Atorvastatin", dosage: "20mg", time: "8:00 PM", status: "upcoming" },
+];
 
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
+const mockAppointments = [
+  { id: 1, doctor: "Dr. Sarah Johnson", type: "Cardiology", date: "Today", time: "3:00 PM", status: "upcoming" },
+  { id: 2, doctor: "Dr. Michael Chen", type: "General Checkup", date: "Tomorrow", time: "10:00 AM", status: "scheduled" },
+];
 
 export const DashboardView = () => {
-  const { user, reminders, medications, getTodayStats, getCurrentStreak } = useAppContext();
-
-  const stats = getTodayStats();
-  const streak = getCurrentStreak();
-  const today = format(new Date(), "EEEE, d MMM yyyy");
-
-  const progressPercent = stats.totalScheduled > 0 ? Math.round((stats.taken / stats.totalScheduled) * 100) : 0;
-  const allDone = stats.totalScheduled > 0 && stats.taken === stats.totalScheduled;
-
-  // Progress bar color
-  const progressColor = useMemo(() => {
-    if (progressPercent >= 100) return "bg-success";
-    if (progressPercent > 50) return "bg-accent";
-    return "bg-warning";
-  }, [progressPercent]);
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {getGreeting()}, {user.name.split(" ")[0]}
-          </h1>
-          <p className="text-base text-muted-foreground mt-0.5">{today}</p>
-        </div>
-        <div className="w-12 h-12 rounded-full bg-accent/20 border-2 border-accent flex items-center justify-center">
-          <span className="text-sm font-bold text-accent">{getInitials(user.name)}</span>
-        </div>
+      {/* Status Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-2 border-accent/30 bg-gradient-to-br from-accent/10 to-accent/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Taken Today</p>
+                <p className="text-4xl font-bold text-accent">1</p>
+              </div>
+              <CheckCircle2 className="w-12 h-12 text-accent" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-warning/30 bg-gradient-to-br from-warning/10 to-warning/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Pending</p>
+                <p className="text-4xl font-bold text-warning">1</p>
+              </div>
+              <Clock className="w-12 h-12 text-warning" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Upcoming</p>
+                <p className="text-4xl font-bold text-primary">1</p>
+              </div>
+              <AlertTriangle className="w-12 h-12 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Main Status Card */}
-      <Card className="border-2 border-accent/30">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl">Today's Medications</CardTitle>
+      {/* Today's Medications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Today's Medications</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Big numbers */}
-          <div className="flex items-baseline justify-center gap-2">
-            <span className="text-5xl font-bold text-accent">{stats.taken}</span>
-            <span className="text-3xl text-muted-foreground font-light">/</span>
-            <span className="text-5xl font-bold text-foreground">{stats.totalScheduled}</span>
+        <CardContent>
+          <div className="space-y-4">
+            {mockMedications.map((med) => (
+              <div
+                key={med.id}
+                className="flex items-center justify-between p-4 rounded-xl border-2 bg-card hover:shadow-md transition-all"
+              >
+                <div className="flex items-center gap-4">
+                  {med.status === "taken" && (
+                    <CheckCircle2 className="w-8 h-8 text-accent flex-shrink-0" />
+                  )}
+                  {med.status === "pending" && (
+                    <Clock className="w-8 h-8 text-warning flex-shrink-0" />
+                  )}
+                  {med.status === "upcoming" && (
+                    <AlertTriangle className="w-8 h-8 text-primary flex-shrink-0" />
+                  )}
+                  <div>
+                    <h3 className="text-xl font-semibold">{med.name}</h3>
+                    <p className="text-lg text-muted-foreground">
+                      {med.dosage} • {med.time}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {med.status === "taken" && (
+                    <Badge className="bg-accent text-accent-foreground text-sm px-4 py-2">
+                      Taken
+                    </Badge>
+                  )}
+                  {med.status === "pending" && (
+                    <Button size="lg" className="text-base px-6">
+                      Mark as Taken
+                    </Button>
+                  )}
+                  {med.status === "upcoming" && (
+                    <Badge variant="outline" className="text-sm px-4 py-2">
+                      Scheduled
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-
-          {/* Progress bar */}
-          <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${progressColor}`}
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-
-          {/* Streak */}
-          <div className="flex items-center justify-center gap-1.5 text-muted-foreground">
-            <Flame className="w-5 h-5 text-warning" />
-            <span className="text-base font-medium">{streak} day streak</span>
-          </div>
-
-          {/* All done banner */}
-          {allDone && (
-            <div className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-success/15 border border-success/30">
-              <CheckCircle2 className="w-5 h-5 text-success" />
-              <span className="text-base font-semibold text-success">All done for now! ✓</span>
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      {/* Today's Medication List */}
+      {/* Upcoming Appointments */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Upcoming Doses</CardTitle>
+          <CardTitle className="text-2xl">Upcoming Appointments</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {reminders.map((rem) => (
+          <div className="space-y-4">
+            {mockAppointments.map((apt) => (
               <div
-                key={rem.id}
-                className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-secondary/50 transition-all"
+                key={apt.id}
+                className="flex items-center justify-between p-4 rounded-xl border-2 bg-card hover:shadow-md transition-all"
               >
-                <div className="flex items-center gap-3">
-                  {rem.status === "taken" && <CheckCircle2 className="w-7 h-7 text-success flex-shrink-0" />}
-                  {rem.status === "pending" && <Clock className="w-7 h-7 text-warning flex-shrink-0" />}
-                  {rem.status === "skipped" && <AlertTriangle className="w-7 h-7 text-destructive flex-shrink-0" />}
-                  {rem.status === "rescheduled" && <Clock className="w-7 h-7 text-primary flex-shrink-0" />}
-                  <div>
-                    <h3 className="text-lg font-semibold">{rem.medicationName}</h3>
-                    <p className="text-sm text-muted-foreground">{rem.scheduledTime}</p>
-                  </div>
+                <div>
+                  <h3 className="text-xl font-semibold">{apt.doctor}</h3>
+                  <p className="text-lg text-muted-foreground">{apt.type}</p>
+                  <p className="text-base text-muted-foreground mt-1">
+                    {apt.date} at {apt.time}
+                  </p>
                 </div>
-                {rem.status === "taken" ? (
-                  <Badge className="bg-success/20 text-success border-success/30 text-sm px-3 py-1">
-                    Taken
-                  </Badge>
-                ) : rem.status === "pending" ? (
-                  <Badge className="bg-warning/20 text-warning border-warning/30 text-sm px-3 py-1">
-                    Pending
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-sm px-3 py-1">
-                    {rem.status}
-                  </Badge>
-                )}
+                <Badge 
+                  variant="outline" 
+                  className={`text-sm px-4 py-2 ${
+                    apt.status === "upcoming" 
+                      ? "border-warning text-warning" 
+                      : "border-primary text-primary"
+                  }`}
+                >
+                  {apt.status === "upcoming" ? "Today" : "Scheduled"}
+                </Badge>
               </div>
             ))}
           </div>

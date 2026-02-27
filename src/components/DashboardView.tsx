@@ -1,10 +1,19 @@
-import { CheckCircle2, Clock, AlertTriangle, Flame } from "lucide-react";
+import { useState } from "react";
+import { Clock, Flame, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAppContext } from "@/context/AppContext";
+import { useToast } from "@/hooks/use-toast";
+import type { Reminder } from "@/lib/types";
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -31,15 +40,57 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+/** Convert "HH:MM" to "h:mm AM/PM" */
+function formatTime(time24: string): string {
+  const [h, m] = time24.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+/** Check if a HH:MM time has passed relative to now */
+function hasTimePassed(time24: string): boolean {
+  const now = new Date();
+  const [h, m] = time24.split(":").map(Number);
+  return now.getHours() > h || (now.getHours() === h && now.getMinutes() > m);
+}
+
+type DisplayStatus = "taken" | "pending" | "missed" | "rescheduled";
+
+function getDisplayStatus(r: Reminder): DisplayStatus {
+  if (r.status === "taken") return "taken";
+  if (r.status === "rescheduled") return "rescheduled";
+  if (r.status === "pending" && hasTimePassed(r.scheduledTime)) return "missed";
+  return "pending";
+}
+
 const mockAppointments = [
   { id: 1, doctor: "Dr. Sarah Johnson", type: "Cardiology", date: "Today", time: "3:00 PM", status: "upcoming" },
   { id: 2, doctor: "Dr. Michael Chen", type: "General Checkup", date: "Tomorrow", time: "10:00 AM", status: "scheduled" },
 ];
 
+const StatusBadge = ({ status, rescheduledTo }: { status: DisplayStatus; rescheduledTo?: string | null }) => {
+  const config = {
+    taken: { bg: "bg-[#E6F7F3]", text: "text-[#28BF9C]", label: "✓ Taken" },
+    pending: { bg: "bg-[#FFFBEB]", text: "text-[#F59E0B]", label: "⏰ Pending" },
+    missed: { bg: "bg-[#FEF2F2]", text: "text-[#EF4444]", label: "✗ Missed" },
+    rescheduled: { bg: "bg-[#E6F7F3]", text: "text-[#28BF9C]", label: `→ ${rescheduledTo ? formatTime(rescheduledTo) : ""}` },
+  };
+  const c = config[status];
+  return (
+    <span className={`${c.bg} ${c.text} text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap`}>
+      {c.label}
+    </span>
+  );
+};
+
 export const DashboardView = () => {
-  const { user, getTodayStats, getCurrentStreak, reminders, markReminderAsTaken } = useAppContext();
+  const { user, getTodayStats, getCurrentStreak, reminders, medications, markReminderAsTaken, rescheduleReminder } = useAppContext();
+  const { toast } = useToast();
   const stats = getTodayStats();
   const streak = getCurrentStreak();
+  const [customMinutes, setCustomMinutes] = useState<Record<string, string>>({});
+  const [showCustom, setShowCustom] = useState<Record<string, boolean>>({});
 
   const adherencePercent = stats.adherencePercent;
   const allDone = stats.totalScheduled > 0 && stats.taken === stats.totalScheduled;
@@ -51,11 +102,33 @@ export const DashboardView = () => {
       ? "bg-[#28BF9C]"
       : "bg-[#F59E0B]";
 
-  // Get today's pending reminders for the "Took it" buttons
   const today = new Date().toISOString().split("T")[0];
-  const todayPending = reminders.filter(
-    (r) => r.date === today && r.status === "pending" && !r.rescheduledFromOriginal
-  );
+  const todayReminders = reminders
+    .filter((r) => r.date === today && r.status !== "rescheduled")
+    .sort((a, b) => a.scheduledTime.localeCompare(b.scheduledTime));
+
+  const handleReschedule = (reminderId: string, minutes: number) => {
+    const conflicts = rescheduleReminder(reminderId, minutes);
+    if (conflicts.length > 0) {
+      toast({
+        description: `⚠️ ${conflicts[0]}`,
+        duration: 5000,
+        className: "bg-[#FFFBEB] border border-[#F59E0B] text-[#1E293B]",
+      });
+    }
+    setShowCustom((prev) => ({ ...prev, [reminderId]: false }));
+  };
+
+  const handleCustomSubmit = (reminderId: string) => {
+    const val = parseInt(customMinutes[reminderId] || "0", 10);
+    if (val > 0) handleReschedule(reminderId, val);
+  };
+
+  // Find dosage for a reminder
+  const getDosage = (r: Reminder) => {
+    const med = medications.find((m) => m.id === r.medicationId);
+    return med?.dosage || "";
+  };
 
   return (
     <div className="space-y-6">
@@ -80,7 +153,6 @@ export const DashboardView = () => {
           <CardTitle className="text-xl font-bold text-[#1E293B]">Today's Medications</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Large numbers row */}
           <div className="flex items-end justify-center gap-2">
             <div className="text-center">
               <p className="text-[40px] font-bold leading-none text-[#28BF9C]">{stats.taken}</p>
@@ -93,7 +165,6 @@ export const DashboardView = () => {
             </div>
           </div>
 
-          {/* Progress bar or all-done banner */}
           {allDone ? (
             <div className="bg-[#F0FDF4] rounded-lg py-3 px-4 text-center">
               <p className="text-[#22C55E] font-semibold">All done for today! ✓</p>
@@ -107,7 +178,6 @@ export const DashboardView = () => {
             </div>
           )}
 
-          {/* Streak */}
           {streak > 0 && (
             <div className="flex items-center justify-center gap-1.5">
               <Flame className="w-4 h-4 text-[#F59E0B]" />
@@ -119,34 +189,99 @@ export const DashboardView = () => {
         </CardContent>
       </Card>
 
-      {/* Pending medications quick actions */}
-      {todayPending.length > 0 && (
-        <Card className="bg-white shadow-sm border border-[#E2E8F0]">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-bold text-[#1E293B]">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {todayPending.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex items-center justify-between p-3 rounded-xl border bg-card"
-                >
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-6 h-6 text-warning flex-shrink-0" />
-                    <div>
-                      <p className="font-semibold text-[#1E293B]">{r.medicationName}</p>
-                      <p className="text-sm text-[#64748B]">{r.scheduledTime}</p>
+      {/* Today's Reminders */}
+      {todayReminders.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-xl font-bold text-[#1E293B]">Today's Reminders</h2>
+          {todayReminders.map((r) => {
+            const displayStatus = getDisplayStatus(r);
+            const isPending = displayStatus === "pending";
+            const dosage = getDosage(r);
+
+            return (
+              <Card key={r.id} className="bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    {/* Left: time */}
+                    <p className="text-[22px] font-bold text-[#1E293B] leading-tight shrink-0 min-w-[80px]">
+                      {formatTime(r.scheduledTime)}
+                    </p>
+
+                    {/* Center: name + dosage + actions */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[18px] font-bold text-[#1E293B] leading-tight">{r.medicationName}</p>
+                      <p className="text-[14px] text-[#64748B]">{dosage}</p>
+
+                      {isPending && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Button
+                            size="sm"
+                            className="bg-[#28BF9C] hover:bg-[#22a888] text-white rounded-lg h-10 px-4 text-sm font-semibold"
+                            onClick={() => markReminderAsTaken(r.id)}
+                          >
+                            ✓ Took it
+                          </Button>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#1E293B] border-0 rounded-lg h-10 px-4 text-sm font-semibold"
+                              >
+                                ⏰ Later <ChevronDown className="w-3.5 h-3.5 ml-1" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              {[10, 20, 30, 60].map((min) => (
+                                <DropdownMenuItem key={min} onClick={() => handleReschedule(r.id, min)}>
+                                  In {min === 60 ? "1 hour" : `${min} minutes`}
+                                </DropdownMenuItem>
+                              ))}
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  setShowCustom((prev) => ({ ...prev, [r.id]: true }));
+                                }}
+                              >
+                                Custom...
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      )}
+
+                      {showCustom[r.id] && isPending && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            placeholder="Minutes"
+                            className="w-24 h-9 text-sm"
+                            value={customMinutes[r.id] || ""}
+                            onChange={(e) =>
+                              setCustomMinutes((prev) => ({ ...prev, [r.id]: e.target.value }))
+                            }
+                          />
+                          <Button
+                            size="sm"
+                            className="h-9 bg-[#28BF9C] hover:bg-[#22a888] text-white text-sm"
+                            onClick={() => handleCustomSubmit(r.id)}
+                          >
+                            Snooze
+                          </Button>
+                        </div>
+                      )}
                     </div>
+
+                    {/* Right: badge */}
+                    <StatusBadge status={displayStatus} rescheduledTo={r.rescheduledTo} />
                   </div>
-                  <Button size="sm" onClick={() => markReminderAsTaken(r.id)}>
-                    ✓ Took it
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
 
       {/* Upcoming Appointments */}

@@ -19,7 +19,7 @@ export const DashboardView = () => {
     <div className="space-y-6">
       {/* Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-2 border-accent/30 bg-gradient-to-br from-accent/10 to-accent/5">
+        <Card className="bg-white shadow-sm border border-[#E2E8F0]">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -31,7 +31,7 @@ export const DashboardView = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-warning/30 bg-gradient-to-br from-warning/10 to-warning/5">
+        <Card className="bg-white shadow-sm border border-[#E2E8F0]">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -43,7 +43,7 @@ export const DashboardView = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
+        <Card className="bg-white shadow-sm border border-[#E2E8F0]">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -93,7 +93,7 @@ export const DashboardView = () => {
                   )}
                   {med.status === "pending" && (
                     <Button size="lg" className="text-base px-6">
-                      Mark as Taken
+                      ✓ Took it
                     </Button>
                   )}
                   {med.status === "upcoming" && (

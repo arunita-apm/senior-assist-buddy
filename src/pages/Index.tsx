@@ -51,14 +51,14 @@ const Index = () => {
               >
                 <Icon
                   className={`w-6 h-6 transition-colors ${
-                    isActive ? "text-accent" : "text-muted-foreground"
+                    isActive ? "text-[#0EA5E9]" : "text-muted-foreground"
                   }`}
                   fill={isActive ? "currentColor" : "none"}
                 />
                 <span
                   className={`text-xs transition-colors ${
                     isActive
-                      ? "text-accent font-bold"
+                      ? "text-[#0EA5E9] font-bold"
                       : "text-muted-foreground font-normal"
                   }`}
                 >

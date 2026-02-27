@@ -67,6 +67,7 @@ function getDisplayStatus(r: Reminder): DisplayStatus {
 
 interface DashboardViewProps {
   onNavigate?: (tab: string) => void;
+  onTestReminder?: (reminder: Reminder) => void;
 }
 
 const StatusBadge = ({ status, rescheduledTo }: { status: DisplayStatus; rescheduledTo?: string | null }) => {
@@ -84,7 +85,7 @@ const StatusBadge = ({ status, rescheduledTo }: { status: DisplayStatus; resched
   );
 };
 
-export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
+export const DashboardView = ({ onNavigate, onTestReminder }: DashboardViewProps) => {
   const { user, getTodayStats, getCurrentStreak, reminders, medications, appointments, markReminderAsTaken, rescheduleReminder } = useAppContext();
   const { toast } = useToast();
   const stats = getTodayStats();
@@ -189,7 +190,21 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
         </CardContent>
       </Card>
 
-      {/* Today's Reminders */}
+      {/* Test Reminder link */}
+      {todayReminders.filter((r) => r.status === "pending").length > 0 && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => {
+              const pending = todayReminders.find((r) => r.status === "pending");
+              if (pending && onTestReminder) onTestReminder(pending);
+            }}
+            className="text-xs text-muted-foreground hover:underline"
+          >
+            🔔 Test Reminder
+          </button>
+        </div>
+      )}
+
       {todayReminders.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-xl font-bold text-[#1E293B]">Today's Reminders</h2>

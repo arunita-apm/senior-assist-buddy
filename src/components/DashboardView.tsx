@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Flame, ChevronDown } from "lucide-react";
+import { Clock, Flame, ChevronDown, CalendarDays, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import type { Reminder } from "@/lib/types";
+import { format } from "date-fns";
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -64,10 +65,9 @@ function getDisplayStatus(r: Reminder): DisplayStatus {
   return "pending";
 }
 
-const mockAppointments = [
-  { id: 1, doctor: "Dr. Sarah Johnson", type: "Cardiology", date: "Today", time: "3:00 PM", status: "upcoming" },
-  { id: 2, doctor: "Dr. Michael Chen", type: "General Checkup", date: "Tomorrow", time: "10:00 AM", status: "scheduled" },
-];
+interface DashboardViewProps {
+  onNavigate?: (tab: string) => void;
+}
 
 const StatusBadge = ({ status, rescheduledTo }: { status: DisplayStatus; rescheduledTo?: string | null }) => {
   const config = {
@@ -84,8 +84,8 @@ const StatusBadge = ({ status, rescheduledTo }: { status: DisplayStatus; resched
   );
 };
 
-export const DashboardView = () => {
-  const { user, getTodayStats, getCurrentStreak, reminders, medications, markReminderAsTaken, rescheduleReminder } = useAppContext();
+export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
+  const { user, getTodayStats, getCurrentStreak, reminders, medications, appointments, markReminderAsTaken, rescheduleReminder } = useAppContext();
   const { toast } = useToast();
   const stats = getTodayStats();
   const streak = getCurrentStreak();
@@ -285,39 +285,77 @@ export const DashboardView = () => {
       )}
 
       {/* Upcoming Appointments */}
-      <Card className="bg-white shadow-sm border border-[#E2E8F0]">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-[#1E293B]">Upcoming Appointments</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {mockAppointments.map((apt) => (
-              <div
-                key={apt.id}
-                className="flex items-center justify-between p-4 rounded-xl border bg-card hover:shadow-md transition-all"
+      {(() => {
+        const now = new Date();
+        const futureAppointments = appointments
+          .filter((a) => new Date(a.dateTime) > now)
+          .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime())
+          .slice(0, 2);
+
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-[#1E293B]">Upcoming</h2>
+              <button
+                onClick={() => onNavigate?.("calendar")}
+                className="text-sm font-semibold text-[#28BF9C] hover:underline"
               >
-                <div>
-                  <h3 className="text-lg font-semibold text-[#1E293B]">{apt.doctor}</h3>
-                  <p className="text-sm text-[#64748B]">{apt.type}</p>
-                  <p className="text-xs text-[#64748B] mt-1">
-                    {apt.date} at {apt.time}
-                  </p>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={`text-sm px-3 py-1 ${
-                    apt.status === "upcoming"
-                      ? "border-warning text-warning"
-                      : "border-primary text-primary"
-                  }`}
-                >
-                  {apt.status === "upcoming" ? "Today" : "Scheduled"}
-                </Badge>
-              </div>
-            ))}
+                See all →
+              </button>
+            </div>
+
+            {futureAppointments.length === 0 ? (
+              <Card className="bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
+                <CardContent className="py-8 flex flex-col items-center gap-3">
+                  <CalendarDays className="w-10 h-10 text-[#94A3B8]" />
+                  <p className="text-sm text-[#64748B]">No upcoming appointments</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="bg-[#F1F5F9] text-[#28BF9C] hover:bg-[#E2E8F0] font-semibold"
+                    onClick={() => onNavigate?.("calendar")}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add appointment
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              futureAppointments.map((apt) => {
+                const dt = new Date(apt.dateTime);
+                return (
+                  <Card key={apt.id} className="bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        {/* Calendar icon circle */}
+                        <div className="w-10 h-10 rounded-full bg-[#E6F7F3] flex items-center justify-center shrink-0">
+                          <CalendarDays className="w-5 h-5 text-[#28BF9C]" />
+                        </div>
+
+                        {/* Title + doctor */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-[#1E293B] truncate">{apt.title}</p>
+                          <p className="text-sm text-[#64748B] truncate">{apt.doctorName}</p>
+                        </div>
+
+                        {/* Date + time */}
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-semibold text-[#1E293B]">
+                            {format(dt, "MMM d")}
+                          </p>
+                          <p className="text-xs text-[#64748B]">
+                            {format(dt, "h:mm a")}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
           </div>
-        </CardContent>
-      </Card>
+        );
+      })()}
     </div>
   );
 };

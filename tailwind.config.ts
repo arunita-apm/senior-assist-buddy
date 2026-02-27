@@ -44,6 +44,10 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
         nav: {
           background: "hsl(var(--nav-background))",
         },

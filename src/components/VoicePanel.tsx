@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { X, Send, Pill, Clock, CalendarPlus, HelpCircle } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
@@ -14,19 +14,19 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
   const { toast } = useToast();
   const [textInput, setTextInput] = useState("");
   const [statusText, setStatusText] = useState<string | null>(null);
-  const [statusColor, setStatusColor] = useState<"green" | "amber" | null>(null);
+  const [statusColor, setStatusColor] = useState<string | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
   const pendingReminder = reminders.find((r) => r.date === today && r.status === "pending");
 
-  const showConfirmation = useCallback((msg: string, color: "green" | "amber") => {
+  const showConfirmation = useCallback((msg: string, color: string) => {
     setStatusText(msg);
     setStatusColor(color);
     setTimeout(() => {
       setStatusText(null);
       setStatusColor(null);
       onClose();
-    }, 2000);
+    }, 2500);
   }, [onClose]);
 
   const handleTakeMedicine = useCallback(() => {
@@ -35,7 +35,7 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
       return;
     }
     markReminderAsTaken(pendingReminder.id);
-    showConfirmation(`${pendingReminder.medicationName} marked as taken ✓`, "green");
+    showConfirmation("✓ Marked as taken", "#28BF9C");
   }, [pendingReminder, markReminderAsTaken, showConfirmation, toast]);
 
   const handleRemindLater = useCallback(() => {
@@ -44,7 +44,7 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
       return;
     }
     rescheduleReminder(pendingReminder.id, 10);
-    showConfirmation(`Rescheduled ${pendingReminder.medicationName} by 10 min`, "amber");
+    showConfirmation("⏰ Rescheduled by 10 minutes", "#F59E0B");
   }, [pendingReminder, rescheduleReminder, showConfirmation, toast]);
 
   const handleAddAppointment = useCallback(() => {
@@ -58,43 +58,56 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
   }, [onClose, onNavigate]);
 
   const handleTextSend = useCallback(() => {
-    const t = textInput.toLowerCase().trim();
-    if (!t) return;
-
-    if (t.includes("took") || t.includes("taken")) {
-      handleTakeMedicine();
-    } else if (t.includes("skip")) {
-      if (pendingReminder) {
-        setReminders((prev) =>
-          prev.map((r) => (r.id === pendingReminder.id ? { ...r, status: "skipped" as const } : r))
-        );
-        showConfirmation("Reminder skipped", "amber");
-      }
-    } else if (t.includes("later")) {
-      const numMatch = t.match(/(\d+)/);
-      const minutes = numMatch ? parseInt(numMatch[1], 10) : 10;
-      if (pendingReminder) {
-        rescheduleReminder(pendingReminder.id, minutes);
-        showConfirmation(`Rescheduled by ${minutes} min`, "amber");
-      }
-    } else {
-      toast({ description: "Sorry, I didn't understand that." });
-    }
+    const input = textInput.toLowerCase().trim();
+    if (!input) return;
     setTextInput("");
-  }, [textInput, handleTakeMedicine, pendingReminder, rescheduleReminder, showConfirmation, setReminders, toast]);
+
+    if (input.includes("took") || input.includes("taken") || input.includes("haan") || input.includes("yes") || input.includes("li")) {
+      if (!pendingReminder) {
+        toast({ description: "No pending reminders right now" });
+        return;
+      }
+      markReminderAsTaken(pendingReminder.id);
+      showConfirmation("✓ Marked as taken", "#28BF9C");
+    } else if (input.includes("later") || input.includes("wait") || input.includes("baad")) {
+      if (!pendingReminder) {
+        toast({ description: "No pending reminders right now" });
+        return;
+      }
+      const numMatch = input.match(/(\d+)/);
+      const minutes = numMatch ? parseInt(numMatch[1], 10) : 10;
+      rescheduleReminder(pendingReminder.id, minutes);
+      showConfirmation(`⏰ Rescheduled by ${minutes} minutes`, "#F59E0B");
+    } else if (input.includes("skip") || input.includes("no") || input.includes("nahi")) {
+      if (!pendingReminder) {
+        toast({ description: "No pending reminders right now" });
+        return;
+      }
+      setReminders((prev) =>
+        prev.map((r) => (r.id === pendingReminder.id ? { ...r, status: "skipped" as const } : r))
+      );
+      showConfirmation("Skipped", "#64748B");
+    } else if (input.includes("appointment") || input.includes("schedule")) {
+      onClose();
+      onNavigate?.("calendar");
+    } else if (input.includes("today") || input.includes("meds") || input.includes("medicine")) {
+      onClose();
+      onNavigate?.("home");
+    } else {
+      showConfirmation("I didn't understand that. Try: 'I took it', 'remind me later', or 'skip'", "#94A3B8");
+    }
+  }, [textInput, pendingReminder, markReminderAsTaken, rescheduleReminder, showConfirmation, setReminders, toast, onClose, onNavigate]);
 
   if (!open) return null;
 
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-[80] bg-black/40"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-[80] bg-black/40" onClick={onClose} />
 
       {/* Panel */}
-      <div className="fixed bottom-0 left-0 right-0 z-[90] bg-card rounded-t-2xl shadow-xl animate-slide-in-bottom max-h-[85vh] overflow-y-auto"
+      <div
+        className="fixed bottom-0 left-0 right-0 z-[90] bg-card rounded-t-2xl shadow-xl max-h-[85vh] overflow-y-auto"
         style={{ animation: "slideUp 0.3s ease-out" }}
       >
         {/* Handle */}
@@ -114,11 +127,10 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
         <div className="mx-5 mb-4">
           <div className="bg-secondary rounded-xl h-20 flex items-center justify-center gap-1 overflow-hidden">
             {statusText ? (
-              <p className={`text-sm font-medium ${statusColor === "green" ? "text-primary" : "text-[hsl(38,92%,50%)]"}`}>
+              <p className="text-sm font-medium px-4 text-center" style={{ color: statusColor || undefined }}>
                 {statusText}
               </p>
             ) : (
-              /* Animated bars */
               Array.from({ length: 20 }).map((_, i) => (
                 <div
                   key={i}

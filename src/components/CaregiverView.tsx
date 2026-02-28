@@ -1,341 +1,251 @@
 import { useState } from "react";
-import { Plus, Phone, Mail, Bell, User, Shield } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Users, Phone, Mail } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from "@/components/ui/drawer";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
 
-type Caregiver = {
-  id: number;
-  name: string;
-  relationship: string;
-  phone: string;
-  email: string;
-  isPrimary: boolean;
-  notifications: {
-    missedMedication: boolean;
-    appointments: boolean;
-    emergencies: boolean;
-  };
-};
-
-const initialCaregivers: Caregiver[] = [
-  {
-    id: 1,
-    name: "Jennifer Smith",
-    relationship: "Daughter",
-    phone: "(555) 123-4567",
-    email: "jennifer.smith@email.com",
-    isPrimary: true,
-    notifications: {
-      missedMedication: true,
-      appointments: true,
-      emergencies: true,
-    },
-  },
-  {
-    id: 2,
-    name: "Robert Smith",
-    relationship: "Son",
-    phone: "(555) 234-5678",
-    email: "robert.smith@email.com",
-    isPrimary: false,
-    notifications: {
-      missedMedication: false,
-      appointments: true,
-      emergencies: true,
-    },
-  },
-];
+const RELATIONSHIPS = ["Son", "Daughter", "Spouse", "Sibling", "Friend", "Other"];
 
 export const CaregiverView = () => {
-  const [caregivers, setCaregivers] = useState<Caregiver[]>(initialCaregivers);
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [editingCg, setEditingCg] = useState<Caregiver | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const { user, setUser } = useAppContext();
   const { toast } = useToast();
+  const caregiver = user.caregiver;
 
-  const [formData, setFormData] = useState({
-    name: "",
-    relationship: "",
-    phone: "",
-    email: "",
-  });
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [cgName, setCgName] = useState("");
+  const [cgRelationship, setCgRelationship] = useState("");
+  const [cgPhone, setCgPhone] = useState("");
+  const [cgEmail, setCgEmail] = useState("");
+  const [cgNote, setCgNote] = useState("");
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      relationship: "",
-      phone: "",
-      email: "",
-    });
+  const openAdd = () => {
+    setIsEditing(false);
+    setCgName("");
+    setCgRelationship("");
+    setCgPhone("");
+    setCgEmail("");
+    setCgNote("");
+    setErrors({});
+    setDrawerOpen(true);
   };
 
-  const handleAdd = () => {
-    const newCg: Caregiver = {
-      id: Math.max(...caregivers.map(c => c.id), 0) + 1,
-      ...formData,
-      isPrimary: false,
-      notifications: {
-        missedMedication: true,
-        appointments: true,
-        emergencies: true,
-      },
+  const openEdit = () => {
+    if (!caregiver) return;
+    setIsEditing(true);
+    setCgName(caregiver.name);
+    setCgRelationship(caregiver.relationship);
+    setCgPhone(caregiver.phone);
+    setCgEmail(caregiver.email || "");
+    setCgNote(caregiver.note || "");
+    setErrors({});
+    setDrawerOpen(true);
+  };
+
+  const handleSave = () => {
+    const errs: Record<string, boolean> = {};
+    if (!cgName.trim()) errs.name = true;
+    if (!cgRelationship) errs.relationship = true;
+    if (!cgPhone.trim()) errs.phone = true;
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+
+    const newCg = {
+      id: caregiver?.id || `cg-${Date.now()}`,
+      name: cgName.trim(),
+      relationship: cgRelationship.toLowerCase(),
+      phone: cgPhone.trim().replace(/^(\+91)?/, ""),
+      email: cgEmail.trim() || undefined,
+      note: cgNote.trim() || undefined,
     };
-    setCaregivers([...caregivers, newCg]);
-    setIsAddOpen(false);
-    resetForm();
-    toast({ title: "Caregiver added successfully" });
+    setUser((prev) => ({ ...prev, caregiver: newCg }));
+    setDrawerOpen(false);
+    toast({ description: isEditing ? "Caregiver updated ✓" : "Caregiver added ✓", duration: 3000, className: "bg-[#E6F7F3] border-[#28BF9C] text-[#28BF9C]" });
   };
 
-  const handleEdit = () => {
-    if (!editingCg) return;
-    setCaregivers(caregivers.map(c => 
-      c.id === editingCg.id 
-        ? { ...c, ...formData }
-        : c
-    ));
-    setEditingCg(null);
-    resetForm();
-    toast({ title: "Caregiver updated successfully" });
-  };
+  const formatPhone = (p: string) => p.startsWith("+") ? p : `+91 ${p}`;
 
-  const handleDelete = () => {
-    if (deletingId === null) return;
-    setCaregivers(caregivers.filter(c => c.id !== deletingId));
-    setDeletingId(null);
-    toast({ title: "Caregiver removed successfully" });
-  };
+  // ── Empty state ─────────────────────────────────────────────────────────
+  if (!caregiver) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="w-16 h-16 rounded-full bg-[#E6F7F3] flex items-center justify-center">
+          <Users className="w-8 h-8 text-[#28BF9C]" />
+        </div>
+        <h2 className="text-lg font-bold text-[#1E293B]">No caregiver added yet</h2>
+        <p className="text-sm text-[#64748B] text-center max-w-[280px]">
+          Your caregiver will be notified if you miss medications
+        </p>
+        <Button
+          className="bg-[#28BF9C] hover:bg-[#22a888] text-white rounded-xl h-[52px] w-[220px] font-bold text-base"
+          onClick={openAdd}
+        >
+          + Add Caregiver
+        </Button>
 
-  const openEditDialog = (cg: Caregiver) => {
-    setEditingCg(cg);
-    setFormData({
-      name: cg.name,
-      relationship: cg.relationship,
-      phone: cg.phone,
-      email: cg.email,
-    });
-  };
-
-  const toggleNotification = (id: number, type: keyof Caregiver["notifications"]) => {
-    setCaregivers(caregivers.map(c =>
-      c.id === id
-        ? { ...c, notifications: { ...c.notifications, [type]: !c.notifications[type] } }
-        : c
-    ));
-    toast({ title: "Notification settings updated" });
-  };
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold">Care Team</h2>
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button size="lg" className="gap-2" onClick={resetForm}>
-              <Plus className="w-5 h-5" />
-              Add Caregiver
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Add New Caregiver</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Name</Label>
-                <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-              </div>
-              <div>
-                <Label htmlFor="relationship">Relationship</Label>
-                <Input id="relationship" value={formData.relationship} onChange={(e) => setFormData({...formData, relationship: e.target.value})} />
-              </div>
-              <div>
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-              </div>
-              <Button onClick={handleAdd} className="w-full">Add Caregiver</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Drawer */}
+        {renderDrawer()}
       </div>
+    );
+  }
 
-      {/* Alert Settings Overview */}
-      <Card className="border-2 border-warning/30 bg-gradient-to-br from-warning/10 to-warning/5">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-4">
-            <Shield className="w-12 h-12 text-warning flex-shrink-0" />
-            <div className="flex-1">
-              <h3 className="text-xl font-semibold mb-2">Alert System Active</h3>
-              <p className="text-base text-muted-foreground leading-relaxed">
-                Your caregivers will be notified if medications are missed or appointments are
-                upcoming. Configure individual notification preferences below.
-              </p>
+  // ── Filled state ────────────────────────────────────────────────────────
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold text-[#1E293B]">Caregiver</h1>
+
+      <Card className="bg-white rounded-2xl shadow-sm border border-[#E2E8F0]">
+        <CardContent className="p-5 space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full bg-[#E6F7F3] flex items-center justify-center flex-shrink-0">
+              <Users className="w-7 h-7 text-[#28BF9C]" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-[#1E293B]">{caregiver.name}</h2>
+              <span className="inline-block mt-1 text-sm font-medium px-3 py-0.5 rounded-full bg-[#E6F7F3] text-[#28BF9C] capitalize">
+                {caregiver.relationship}
+              </span>
             </div>
           </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-[#64748B]">
+              <Phone className="w-4 h-4" />
+              <span className="text-sm">{formatPhone(caregiver.phone)}</span>
+            </div>
+            {caregiver.email && (
+              <div className="flex items-center gap-2 text-[#64748B]">
+                <Mail className="w-4 h-4" />
+                <span className="text-sm">{caregiver.email}</span>
+              </div>
+            )}
+          </div>
+
+          <a
+            href={`https://wa.me/91${caregiver.phone.replace(/\D/g, "")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-[#25D366] text-white font-bold text-base hover:opacity-90 active:scale-[0.98] transition-all"
+          >
+            Message on WhatsApp
+          </a>
+
+          <button onClick={openEdit} className="text-[#28BF9C] text-sm font-medium w-full text-center">
+            Edit Caregiver
+          </button>
         </CardContent>
       </Card>
 
-      {/* Caregivers List */}
-      <div className="grid gap-6">
-        {caregivers.map((caregiver) => (
-          <Card key={caregiver.id} className="overflow-hidden hover:shadow-lg transition-all">
-            <CardHeader className="bg-gradient-to-r from-primary/10 to-primary-glow/10 border-b">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center flex-shrink-0">
-                    <User className="w-7 h-7 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-2xl mb-2">{caregiver.name}</CardTitle>
-                    <Badge variant="secondary" className="text-base px-3 py-1">
-                      {caregiver.relationship}
-                    </Badge>
-                  </div>
-                </div>
-                {caregiver.isPrimary && (
-                  <Badge className="bg-accent text-accent-foreground text-base px-4 py-2">
-                    Primary Contact
-                  </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-6">
-              {/* Contact Information */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 text-lg">
-                  <Phone className="w-5 h-5 text-primary flex-shrink-0" />
-                  <a href={`tel:${caregiver.phone}`} className="text-muted-foreground hover:text-primary transition-colors">
-                    {caregiver.phone}
-                  </a>
-                </div>
-                <div className="flex items-center gap-3 text-lg">
-                  <Mail className="w-5 h-5 text-primary flex-shrink-0" />
-                  <a href={`mailto:${caregiver.email}`} className="text-muted-foreground hover:text-primary transition-colors">
-                    {caregiver.email}
-                  </a>
-                </div>
-              </div>
+      <p className="text-[13px] text-[#94A3B8] text-center italic px-4">
+        Seva will notify your caregiver if you miss 3 medication reminders in a row.
+      </p>
 
-              {/* Notification Settings */}
-              <div className="border-t pt-6">
-                <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-primary" />
-                  Notification Settings
-                </h4>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-base">Missed Medications</p>
-                      <p className="text-sm text-muted-foreground">
-                        Alert when medication is not taken after 2 reminders
-                      </p>
-                    </div>
-                    <Switch 
-                      checked={caregiver.notifications.missedMedication} 
-                      onCheckedChange={() => toggleNotification(caregiver.id, "missedMedication")}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-base">Appointment Reminders</p>
-                      <p className="text-sm text-muted-foreground">
-                        Notify 24 hours before appointments
-                      </p>
-                    </div>
-                    <Switch 
-                      checked={caregiver.notifications.appointments} 
-                      onCheckedChange={() => toggleNotification(caregiver.id, "appointments")}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-base">Emergency Alerts</p>
-                      <p className="text-sm text-muted-foreground">
-                        Critical health notifications
-                      </p>
-                    </div>
-                    <Switch 
-                      checked={caregiver.notifications.emergencies} 
-                      onCheckedChange={() => toggleNotification(caregiver.id, "emergencies")}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-2">
-                <Dialog open={editingCg?.id === caregiver.id} onOpenChange={(open) => !open && setEditingCg(null)}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="lg" className="flex-1" onClick={() => openEditDialog(caregiver)}>
-                      Edit Contact
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Edit Caregiver</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="edit-name">Name</Label>
-                        <Input id="edit-name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-relationship">Relationship</Label>
-                        <Input id="edit-relationship" value={formData.relationship} onChange={(e) => setFormData({...formData, relationship: e.target.value})} />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-phone">Phone</Label>
-                        <Input id="edit-phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-email">Email</Label>
-                        <Input id="edit-email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-                      </div>
-                      <Button onClick={handleEdit} className="w-full">Update Caregiver</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                {!caregiver.isPrimary && (
-                  <Button 
-                    variant="outline" 
-                    size="lg" 
-                    className="flex-1 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                    onClick={() => setDeletingId(caregiver.id)}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <AlertDialog open={deletingId !== null} onOpenChange={(open) => !open && setDeletingId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Caregiver</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove this caregiver from your care team? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {renderDrawer()}
     </div>
   );
+
+  function renderDrawer() {
+    return (
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DrawerContent className="bg-white rounded-t-2xl max-h-[90vh]">
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="text-xl font-bold text-[#1E293B]">
+              {isEditing ? "Edit Caregiver" : "Add Caregiver"}
+            </DrawerTitle>
+            <DrawerDescription className="sr-only">
+              {isEditing ? "Edit caregiver details" : "Add a new caregiver"}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 space-y-4">
+            <div>
+              <Label htmlFor="cg-name" className="text-[13px] text-[#64748B]">Full Name *</Label>
+              <Input
+                id="cg-name"
+                name="cg-name"
+                value={cgName}
+                onChange={(e) => { setCgName(e.target.value); setErrors((prev) => ({ ...prev, name: false })); }}
+                placeholder="e.g. Priya Kumar"
+                className={`mt-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg ${errors.name ? "border-[#EF4444]" : ""}`}
+              />
+            </div>
+            <div>
+              <Label htmlFor="cg-relationship" className="text-[13px] text-[#64748B]">Relationship *</Label>
+              <Select value={cgRelationship} onValueChange={(v) => { setCgRelationship(v); setErrors((prev) => ({ ...prev, relationship: false })); }}>
+                <SelectTrigger id="cg-relationship" className={`mt-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg ${errors.relationship ? "border-[#EF4444]" : ""}`}>
+                  <SelectValue placeholder="Select relationship" />
+                </SelectTrigger>
+                <SelectContent>
+                  {RELATIONSHIPS.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="cg-phone" className="text-[13px] text-[#64748B]">Phone Number *</Label>
+              <div className="flex gap-2 mt-1">
+                <span className="h-[52px] px-3 flex items-center bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg text-[#64748B] text-sm">+91</span>
+                <Input
+                  id="cg-phone"
+                  name="cg-phone"
+                  value={cgPhone}
+                  onChange={(e) => { setCgPhone(e.target.value); setErrors((prev) => ({ ...prev, phone: false })); }}
+                  placeholder="9876543210"
+                  className={`flex-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg ${errors.phone ? "border-[#EF4444]" : ""}`}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="cg-email" className="text-[13px] text-[#64748B]">Email (optional)</Label>
+              <Input
+                id="cg-email"
+                name="cg-email"
+                type="email"
+                value={cgEmail}
+                onChange={(e) => setCgEmail(e.target.value)}
+                placeholder="email@example.com"
+                className="mt-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg"
+              />
+            </div>
+            <div>
+              <Label htmlFor="cg-note" className="text-[13px] text-[#64748B]">Note (optional)</Label>
+              <Textarea
+                id="cg-note"
+                name="cg-note"
+                value={cgNote}
+                onChange={(e) => setCgNote(e.target.value)}
+                placeholder="Any special notes..."
+                rows={2}
+                className="mt-1 bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg"
+              />
+            </div>
+            <div className="flex items-center justify-between pt-2">
+              <Button variant="ghost" className="text-[#64748B]" onClick={() => setDrawerOpen(false)}>Cancel</Button>
+              <Button className="bg-[#28BF9C] hover:bg-[#22a888] text-white rounded-lg h-12 px-6 font-bold" onClick={handleSave}>
+                {isEditing ? "Save Changes" : "Add Caregiver"}
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
 };

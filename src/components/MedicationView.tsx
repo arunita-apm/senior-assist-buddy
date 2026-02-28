@@ -422,8 +422,11 @@ export const MedicationView = () => {
           <div className="overflow-y-auto px-4 pb-4 space-y-5">
             {/* Name */}
             <div>
-              <Label className="text-[13px] text-[#64748B]">Medication Name</Label>
+              <Label htmlFor="med-name" className="text-[13px] text-[#64748B]">Medication Name</Label>
               <Input
+                id="med-name"
+                name="med-name"
+                autoComplete="off"
                 value={form.name}
                 onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); setErrors((e2) => ({ ...e2, name: false })); }}
                 placeholder="e.g. Amlodipine"
@@ -436,8 +439,11 @@ export const MedicationView = () => {
 
             {/* Dosage */}
             <div>
-              <Label className="text-[13px] text-[#64748B]">Dosage</Label>
+              <Label htmlFor="med-dosage" className="text-[13px] text-[#64748B]">Dosage</Label>
               <Input
+                id="med-dosage"
+                name="med-dosage"
+                autoComplete="off"
                 value={form.dosage}
                 onChange={(e) => { setForm((f) => ({ ...f, dosage: e.target.value })); setErrors((e2) => ({ ...e2, dosage: false })); }}
                 placeholder="e.g. 5mg, 1 tablet, 2 drops"
@@ -494,8 +500,10 @@ export const MedicationView = () => {
             <div className="space-y-3">
               {Array.from({ length: timesCount }).map((_, i) => (
                 <div key={i}>
-                  <Label className="text-[13px] text-[#64748B]">{TIME_LABELS[i] || `Dose ${i + 1}`}</Label>
+                  <Label htmlFor={`med-time-${i}`} className="text-[13px] text-[#64748B]">{TIME_LABELS[i] || `Dose ${i + 1}`}</Label>
                   <Input
+                    id={`med-time-${i}`}
+                    name={`med-time-${i}`}
                     type="time"
                     value={form.times[i] || "08:00"}
                     onChange={(e) => setTimeAt(i, e.target.value)}
@@ -550,6 +558,8 @@ export const MedicationView = () => {
                 </div>
                 {form.gapMode === "custom" && (
                   <Input
+                    id="med-gap-custom"
+                    name="med-gap-custom"
                     type="number"
                     min={1}
                     placeholder="Minutes"
@@ -563,8 +573,10 @@ export const MedicationView = () => {
 
             {/* Notes */}
             <div>
-              <Label className="text-[13px] text-[#64748B]">Notes</Label>
+              <Label htmlFor="med-notes" className="text-[13px] text-[#64748B]">Notes</Label>
               <Textarea
+                id="med-notes"
+                name="med-notes"
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 placeholder="Any special instructions..."

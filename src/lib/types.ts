@@ -29,6 +29,8 @@ export interface Caregiver {
   name: string;
   phone: string;
   relationship: string;
+  email?: string;
+  note?: string;
 }
 
 export interface Appointment {

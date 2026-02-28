@@ -1,18 +1,19 @@
 import { useState } from "react";
-import { Home, Pill, Calendar, User, Mic } from "lucide-react";
+import { Home, Pill, Calendar, Users, Mic } from "lucide-react";
 import { DashboardView } from "@/components/DashboardView";
 import { MedicationView } from "@/components/MedicationView";
 import { AppointmentView } from "@/components/AppointmentView";
-import { ProfileView } from "@/components/ProfileView";
+import { CaregiverView } from "@/components/CaregiverView";
 import { ReminderActiveScreen } from "@/components/ReminderActiveScreen";
 import { VoicePanel } from "@/components/VoicePanel";
+import { PatientProfileScreen } from "@/components/PatientProfileScreen";
 import type { Reminder } from "@/lib/types";
 
 const tabs = [
   { id: "home", label: "Home", icon: Home },
   { id: "medications", label: "Medications", icon: Pill },
   { id: "calendar", label: "Calendar", icon: Calendar },
-  { id: "profile", label: "Profile", icon: User },
+  { id: "caregiver", label: "Caregiver", icon: Users },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -21,6 +22,11 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(null);
   const [voicePanelOpen, setVoicePanelOpen] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+
+  if (showProfile) {
+    return <PatientProfileScreen onBack={() => setShowProfile(false)} />;
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -29,14 +35,20 @@ const Index = () => {
           <DashboardView
             onNavigate={(tab) => setActiveTab(tab as TabId)}
             onTestReminder={(r) => setActiveReminder(r)}
+            onAvatarTap={() => setShowProfile(true)}
           />
         )}
         {activeTab === "medications" && <MedicationView />}
         {activeTab === "calendar" && <AppointmentView />}
-        {activeTab === "profile" && <ProfileView />}
+        {activeTab === "caregiver" && <CaregiverView />}
       </main>
 
-      {/* Floating mic FAB */}
+      {/* Ask Seva label + Floating mic FAB */}
+      {!voicePanelOpen && (
+        <span className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-50 text-[11px] font-semibold text-[#28BF9C] pointer-events-none">
+          Ask Seva
+        </span>
+      )}
       <button
         onClick={() => setVoicePanelOpen(true)}
         className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-14 h-14 rounded-full bg-accent text-accent-foreground flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform"

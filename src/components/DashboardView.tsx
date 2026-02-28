@@ -68,6 +68,7 @@ function getDisplayStatus(r: Reminder): DisplayStatus {
 interface DashboardViewProps {
   onNavigate?: (tab: string) => void;
   onTestReminder?: (reminder: Reminder) => void;
+  onAvatarTap?: () => void;
 }
 
 const StatusBadge = ({ status, rescheduledTo }: { status: DisplayStatus; rescheduledTo?: string | null }) => {
@@ -85,7 +86,7 @@ const StatusBadge = ({ status, rescheduledTo }: { status: DisplayStatus; resched
   );
 };
 
-export const DashboardView = ({ onNavigate, onTestReminder }: DashboardViewProps) => {
+export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: DashboardViewProps) => {
   const { user, getTodayStats, getCurrentStreak, reminders, medications, appointments, markReminderAsTaken, rescheduleReminder } = useAppContext();
   const { toast } = useToast();
   const stats = getTodayStats();
@@ -141,11 +142,13 @@ export const DashboardView = ({ onNavigate, onTestReminder }: DashboardViewProps
           </h1>
           <p className="text-sm text-[#64748B]">{formatToday()}</p>
         </div>
-        <Avatar className="w-12 h-12">
-          <AvatarFallback className="bg-accent text-white font-bold text-base">
-            {getInitials(user.name)}
-          </AvatarFallback>
-        </Avatar>
+        <button onClick={onAvatarTap} className="focus:outline-none">
+          <Avatar className="w-12 h-12">
+            <AvatarFallback className="bg-accent text-white font-bold text-base">
+              {getInitials(user.name)}
+            </AvatarFallback>
+          </Avatar>
+        </button>
       </div>
 
       {/* Main Status Card */}

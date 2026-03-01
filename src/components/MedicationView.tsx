@@ -367,13 +367,13 @@ export const MedicationView = () => {
                   {/* Bottom buttons */}
                   <div className="flex items-center gap-4 pt-1">
                     <button
-                      className="flex items-center gap-1 text-base text-muted-foreground hover:text-foreground min-w-[48px] min-h-[48px]"
+                      className="flex items-center gap-1 text-sm text-[#64748B] hover:text-[#1E293B]"
                       onClick={() => openEdit(med)}
                     >
                       <Pencil className="w-4 h-4" /> Edit
                     </button>
                     <button
-                      className="flex items-center gap-1 text-base text-destructive hover:text-destructive/80 min-w-[48px] min-h-[48px]"
+                      className="flex items-center gap-1 text-sm text-[#EF4444] hover:text-[#DC2626]"
                       onClick={() => setDeletingMed(med)}
                     >
                       <Trash2 className="w-4 h-4" /> Delete

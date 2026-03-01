@@ -137,14 +137,14 @@ export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: Dashb
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1E293B]">
+          <h1 className="text-2xl font-bold text-foreground">
             {getGreeting()}, {user.name.split(" ")[0]}
           </h1>
-          <p className="text-sm text-[#64748B]">{formatToday()}</p>
+          <p className="text-base text-muted-foreground">{formatToday()}</p>
         </div>
-        <button onClick={onAvatarTap} className="focus:outline-none">
+        <button onClick={onAvatarTap} className="focus:outline-none min-w-[48px] min-h-[48px] flex items-center justify-center">
           <Avatar className="w-12 h-12">
-            <AvatarFallback className="bg-accent text-white font-bold text-base">
+            <AvatarFallback className="bg-accent text-accent-foreground font-bold text-base">
               {getInitials(user.name)}
             </AvatarFallback>
           </Avatar>
@@ -234,7 +234,7 @@ export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: Dashb
                         <div className="flex items-center gap-2 mt-2">
                           <Button
                             size="sm"
-                            className="bg-[#28BF9C] hover:bg-[#22a888] text-white rounded-lg h-10 px-4 text-sm font-semibold"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-12 min-w-[48px] px-4 text-base font-semibold"
                             onClick={() => markReminderAsTaken(r.id)}
                           >
                             ✓ Took it
@@ -245,14 +245,14 @@ export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: Dashb
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#1E293B] border-0 rounded-lg h-10 px-4 text-sm font-semibold"
+                                className="bg-secondary hover:bg-muted text-foreground border-0 rounded-lg h-12 min-w-[48px] px-4 text-base font-semibold"
                               >
                                 ⏰ Later <ChevronDown className="w-3.5 h-3.5 ml-1" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start">
                               {[10, 20, 30, 60].map((min) => (
-                                <DropdownMenuItem key={min} onClick={() => handleReschedule(r.id, min)}>
+                                <DropdownMenuItem key={min} onClick={() => handleReschedule(r.id, min)} className="h-12 text-base">
                                   In {min === 60 ? "1 hour" : `${min} minutes`}
                                 </DropdownMenuItem>
                               ))}
@@ -261,6 +261,7 @@ export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: Dashb
                                   e.preventDefault();
                                   setShowCustom((prev) => ({ ...prev, [r.id]: true }));
                                 }}
+                                className="h-12 text-base"
                               >
                                 Custom...
                               </DropdownMenuItem>
@@ -275,7 +276,7 @@ export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: Dashb
                             type="number"
                             min={1}
                             placeholder="Minutes"
-                            className="w-24 h-9 text-sm"
+                            className="w-24 h-12 text-base"
                             value={customMinutes[r.id] || ""}
                             onChange={(e) =>
                               setCustomMinutes((prev) => ({ ...prev, [r.id]: e.target.value }))
@@ -283,7 +284,7 @@ export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: Dashb
                           />
                           <Button
                             size="sm"
-                            className="h-9 bg-[#28BF9C] hover:bg-[#22a888] text-white text-sm"
+                            className="h-12 bg-primary hover:bg-primary/90 text-primary-foreground text-base"
                             onClick={() => handleCustomSubmit(r.id)}
                           >
                             Snooze

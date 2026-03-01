@@ -66,6 +66,7 @@ export const CaregiverView = () => {
     if (!cgName.trim()) errs.name = true;
     if (!cgRelationship) errs.relationship = true;
     if (!cgPhone.trim()) errs.phone = true;
+    if (!cgEmail.trim()) errs.email = true;
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
     const newCg = {
@@ -139,23 +140,17 @@ export const CaregiverView = () => {
             )}
           </div>
 
-          <a
-            href={`https://wa.me/91${caregiver.phone.replace(/\D/g, "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-[#25D366] text-white font-bold text-base hover:opacity-90 active:scale-[0.98] transition-all"
-          >
-            Message on WhatsApp
-          </a>
-
-          <button onClick={openEdit} className="text-[#28BF9C] text-sm font-medium w-full text-center">
+          <button onClick={openEdit} className="text-primary text-base font-medium w-full text-center min-h-[48px] flex items-center justify-center">
             Edit Caregiver
           </button>
         </CardContent>
       </Card>
 
-      <p className="text-[13px] text-[#94A3B8] text-center italic px-4">
+      <p className="text-[13px] text-muted-foreground text-center italic px-4">
         Seva will notify your caregiver if you miss 3 medication reminders in a row.
+      </p>
+      <p className="text-[13px] text-muted-foreground text-center italic px-4">
+        Weekly adherence report will be sent to your caregiver every Monday.
       </p>
 
       {renderDrawer()}
@@ -214,15 +209,15 @@ export const CaregiverView = () => {
               </div>
             </div>
             <div>
-              <Label htmlFor="cg-email" className="text-[13px] text-[#64748B]">Email (optional)</Label>
+              <Label htmlFor="cg-email" className="text-[13px] text-[#64748B]">Email *</Label>
               <Input
                 id="cg-email"
                 name="cg-email"
                 type="email"
                 value={cgEmail}
-                onChange={(e) => setCgEmail(e.target.value)}
+                onChange={(e) => { setCgEmail(e.target.value); setErrors((prev) => ({ ...prev, email: false })); }}
                 placeholder="email@example.com"
-                className="mt-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg"
+                className={`mt-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg ${errors.email ? "border-[#EF4444]" : ""}`}
               />
             </div>
             <div>

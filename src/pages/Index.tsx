@@ -45,7 +45,7 @@ const Index = () => {
 
       {/* Ask Seva label + Floating mic FAB */}
       {!voicePanelOpen && (
-        <span className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-50 text-[11px] font-semibold text-[#28BF9C] pointer-events-none">
+        <span className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-50 text-[11px] font-semibold text-primary pointer-events-none select-none">
           Ask Seva
         </span>
       )}
@@ -67,7 +67,7 @@ const Index = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className="flex flex-col items-center gap-1 py-2 px-3 transition-colors"
+                className="flex flex-col items-center gap-1 py-2 px-3 transition-colors min-w-[48px] min-h-[64px] justify-center"
                 aria-label={tab.label}
               >
                 <Icon

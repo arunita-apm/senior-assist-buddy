@@ -56,13 +56,13 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-[hsl(210,40%,98%)] overflow-y-auto">
+    <div className="fixed inset-0 z-[70] bg-background overflow-y-auto">
       {/* Header */}
       <div className="flex items-center px-4 py-4">
-        <button onClick={onBack} className="p-2 -ml-2 text-[#1E293B]">
+        <button onClick={onBack} className="p-2 -ml-2 text-foreground min-w-[48px] min-h-[48px] flex items-center justify-center">
           <ArrowLeft className="w-6 h-6" />
         </button>
-        <h1 className="flex-1 text-center text-xl font-bold text-[#1E293B] -ml-8">My Profile</h1>
+        <h1 className="flex-1 text-center text-xl font-bold text-foreground -ml-8">My Profile</h1>
         <div className="w-8" />
       </div>
 

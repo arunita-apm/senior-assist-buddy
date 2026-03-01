@@ -14,13 +14,305 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          appointment_datetime: string
+          created_at: string | null
+          doctor_name: string | null
+          id: string
+          location: string | null
+          notes: string | null
+          reminder_minutes_before: number | null
+          specialty: string | null
+          status: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          appointment_datetime: string
+          created_at?: string | null
+          doctor_name?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          reminder_minutes_before?: number | null
+          specialty?: string | null
+          status?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          appointment_datetime?: string
+          created_at?: string | null
+          doctor_name?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          reminder_minutes_before?: number | null
+          specialty?: string | null
+          status?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      caregiver_notifications: {
+        Row: {
+          channel: string
+          id: string
+          message: string
+          sent_at: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          id?: string
+          message: string
+          sent_at?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          id?: string
+          message?: string
+          sent_at?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caregiver_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medications: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          dosage: string | null
+          frequency: string | null
+          id: string
+          is_active: boolean | null
+          mandatory_gap_minutes: number | null
+          name: string
+          notes: string | null
+          times: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          dosage?: string | null
+          frequency?: string | null
+          id?: string
+          is_active?: boolean | null
+          mandatory_gap_minutes?: number | null
+          name: string
+          notes?: string | null
+          times?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          dosage?: string | null
+          frequency?: string | null
+          id?: string
+          is_active?: boolean | null
+          mandatory_gap_minutes?: number | null
+          name?: string
+          notes?: string | null
+          times?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminder_logs: {
+        Row: {
+          action: string
+          action_at: string | null
+          id: string
+          notes: string | null
+          reminder_id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          action_at?: string | null
+          id?: string
+          notes?: string | null
+          reminder_id: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          action_at?: string | null
+          id?: string
+          notes?: string | null
+          reminder_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_logs_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "reminders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminders: {
+        Row: {
+          created_at: string | null
+          id: string
+          medication_id: string
+          rescheduled_to: string | null
+          retry_count: number | null
+          scheduled_date: string
+          scheduled_time: string
+          status: string | null
+          taken_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          medication_id: string
+          rescheduled_to?: string | null
+          retry_count?: number | null
+          scheduled_date: string
+          scheduled_time: string
+          status?: string | null
+          taken_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          medication_id?: string
+          rescheduled_to?: string | null
+          retry_count?: number | null
+          scheduled_date?: string
+          scheduled_time?: string
+          status?: string | null
+          taken_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          age: number | null
+          caregiver_email: string | null
+          caregiver_fcm_token: string | null
+          caregiver_name: string | null
+          caregiver_phone: string | null
+          caregiver_relationship: string | null
+          created_at: string | null
+          fcm_token: string | null
+          id: string
+          name: string | null
+          phone: string | null
+          role: string | null
+          streak: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          age?: number | null
+          caregiver_email?: string | null
+          caregiver_fcm_token?: string | null
+          caregiver_name?: string | null
+          caregiver_phone?: string | null
+          caregiver_relationship?: string | null
+          created_at?: string | null
+          fcm_token?: string | null
+          id: string
+          name?: string | null
+          phone?: string | null
+          role?: string | null
+          streak?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          age?: number | null
+          caregiver_email?: string | null
+          caregiver_fcm_token?: string | null
+          caregiver_name?: string | null
+          caregiver_phone?: string | null
+          caregiver_relationship?: string | null
+          created_at?: string | null
+          fcm_token?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          role?: string | null
+          streak?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_weekly_adherence: {
+        Args: { p_user_id: string }
+        Returns: {
+          adherence_pct: number
+          current_streak: number
+          total_scheduled: number
+          total_taken: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

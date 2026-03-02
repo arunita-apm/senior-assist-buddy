@@ -11,7 +11,7 @@ interface VoicePanelProps {
 }
 
 export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
-  const { reminders, markReminderAsTaken, rescheduleReminder, setReminders } = useAppContext();
+  const { reminders, markReminderAsTaken, rescheduleReminder, skipReminder } = useAppContext();
   const { toast } = useToast();
   const [textInput, setTextInput] = useState("");
   const [statusText, setStatusText] = useState<string | null>(null);
@@ -89,9 +89,7 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
         toast({ description: "No pending reminders right now" });
         return;
       }
-      setReminders((prev) =>
-        prev.map((r) => (r.id === pendingReminder.id ? { ...r, status: "skipped" as const } : r))
-      );
+      skipReminder(pendingReminder.id);
       showConfirmation("Skipped", "#64748B");
     } else if (input.includes("appointment") || input.includes("schedule")) {
       onClose();
@@ -102,26 +100,22 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
     } else {
       showConfirmation("I didn't understand that. Try: 'I took it', 'remind me later', or 'skip'", "#94A3B8");
     }
-  }, [textInput, pendingReminder, markReminderAsTaken, rescheduleReminder, showConfirmation, setReminders, toast, onClose, onNavigate]);
+  }, [textInput, pendingReminder, markReminderAsTaken, rescheduleReminder, skipReminder, showConfirmation, toast, onClose, onNavigate]);
 
   if (!open) return null;
 
   return (
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 z-[80] bg-black/40" onClick={onClose} />
 
-      {/* Panel */}
       <div
         className="fixed bottom-0 left-0 right-0 z-[90] bg-card rounded-t-2xl shadow-xl max-h-[85vh] overflow-y-auto"
         style={{ animation: "slideUp 0.3s ease-out" }}
       >
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-9 h-1 rounded-full bg-border" />
         </div>
 
-        {/* Header */}
         <div className="flex items-center justify-between px-5 pb-3">
           <h2 className="text-lg font-bold text-foreground">What would you like to do?</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1">
@@ -129,7 +123,6 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
           </button>
         </div>
 
-        {/* Waveform area */}
         <div className="mx-5 mb-4">
           <div className="bg-secondary rounded-xl h-20 flex items-center justify-center gap-1 overflow-hidden">
             {statusText ? (
@@ -155,7 +148,6 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
           )}
         </div>
 
-        {/* Text input */}
         <div className="mx-5 mb-4 flex gap-2">
           <input
             type="text"
@@ -173,7 +165,6 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
           </button>
         </div>
 
-        {/* Quick actions 2×2 */}
         <div className="mx-5 mb-6 grid grid-cols-2 gap-3">
           {[
             { icon: Pill, label: "I took my medicine", action: handleTakeMedicine },

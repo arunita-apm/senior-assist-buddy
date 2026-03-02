@@ -26,7 +26,8 @@ import { caregiverSchema, validateForm } from "@/lib/validation";
 const RELATIONSHIPS = ["Son", "Daughter", "Spouse", "Sibling", "Friend", "Other"];
 
 export const CaregiverView = () => {
-  const { user, setUser } = useAppContext();
+  const { user, setUser, userRole } = useAppContext();
+  const isCaregiver = userRole === "caregiver";
   const { toast } = useToast();
   const caregiver = user.caregiver;
 
@@ -97,15 +98,16 @@ export const CaregiverView = () => {
         <p className="text-sm text-[#64748B] text-center max-w-[280px]">
           Your caregiver will be notified if you miss medications
         </p>
-        <Button
-          className="bg-[#28BF9C] hover:bg-[#22a888] text-white rounded-xl h-[52px] w-[220px] font-bold text-base"
-          onClick={openAdd}
-        >
-          + Add Caregiver
-        </Button>
+        {!isCaregiver && (
+          <Button
+            className="bg-[#28BF9C] hover:bg-[#22a888] text-white rounded-xl h-[52px] w-[220px] font-bold text-base"
+            onClick={openAdd}
+          >
+            + Add Caregiver
+          </Button>
+        )}
 
-        {/* Drawer */}
-        {renderDrawer()}
+        {!isCaregiver && renderDrawer()}
       </div>
     );
   }
@@ -142,9 +144,11 @@ export const CaregiverView = () => {
             )}
           </div>
 
-          <button onClick={openEdit} className="text-primary text-base font-medium w-full text-center min-h-[48px] flex items-center justify-center">
-            Edit Caregiver
-          </button>
+          {!isCaregiver && (
+            <button onClick={openEdit} className="text-primary text-base font-medium w-full text-center min-h-[48px] flex items-center justify-center">
+              Edit Caregiver
+            </button>
+          )}
         </CardContent>
       </Card>
 
@@ -155,7 +159,7 @@ export const CaregiverView = () => {
         Weekly adherence report will be sent to your caregiver every Monday.
       </p>
 
-      {renderDrawer()}
+      {!isCaregiver && renderDrawer()}
     </div>
   );
 

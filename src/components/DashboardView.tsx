@@ -87,7 +87,8 @@ const StatusBadge = ({ status, rescheduledTo }: { status: DisplayStatus; resched
 };
 
 export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: DashboardViewProps) => {
-  const { user, getTodayStats, getCurrentStreak, reminders, medications, appointments, markReminderAsTaken, rescheduleReminder } = useAppContext();
+  const { user, getTodayStats, getCurrentStreak, reminders, medications, appointments, markReminderAsTaken, rescheduleReminder, userRole } = useAppContext();
+  const isCaregiver = userRole === "caregiver";
   const { toast } = useToast();
   const stats = getTodayStats();
   const streak = getCurrentStreak();
@@ -193,8 +194,8 @@ export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: Dashb
         </CardContent>
       </Card>
 
-      {/* Test Reminder link */}
-      {todayReminders.filter((r) => r.status === "pending").length > 0 && (
+      {/* Test Reminder link — hidden for caregivers */}
+      {!isCaregiver && todayReminders.filter((r) => r.status === "pending").length > 0 && (
         <div className="flex justify-end">
           <button
             onClick={() => {
@@ -230,7 +231,7 @@ export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: Dashb
                       <p className="text-[18px] font-bold text-[#1E293B] leading-tight">{r.medicationName}</p>
                       <p className="text-[14px] text-[#64748B]">{dosage}</p>
 
-                      {isPending && (
+                      {isPending && !isCaregiver && (
                         <div className="flex items-center gap-2 mt-2">
                           <Button
                             size="sm"
@@ -270,7 +271,7 @@ export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: Dashb
                         </div>
                       )}
 
-                      {showCustom[r.id] && isPending && (
+                      {showCustom[r.id] && isPending && !isCaregiver && (
                         <div className="flex items-center gap-2 mt-2">
                           <Input
                             type="number"
@@ -328,15 +329,17 @@ export const DashboardView = ({ onNavigate, onTestReminder, onAvatarTap }: Dashb
                 <CardContent className="py-8 flex flex-col items-center gap-3">
                   <CalendarDays className="w-10 h-10 text-[#94A3B8]" />
                   <p className="text-sm text-[#64748B]">No upcoming appointments</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="bg-[#F1F5F9] text-[#28BF9C] hover:bg-[#E2E8F0] font-semibold"
-                    onClick={() => onNavigate?.("calendar")}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add appointment
-                  </Button>
+                  {!isCaregiver && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="bg-[#F1F5F9] text-[#28BF9C] hover:bg-[#E2E8F0] font-semibold"
+                      onClick={() => onNavigate?.("calendar")}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add appointment
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (

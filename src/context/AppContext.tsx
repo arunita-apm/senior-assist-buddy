@@ -78,11 +78,14 @@ const defaultUser: UserProfile = { name: "User", age: 0, phone: "", role: "senio
 
 interface AppContextValue extends AppState {
   loading: boolean;
+  userRole: "patient" | "caregiver";
+  viewingPatientName: string;
   setMedications: React.Dispatch<React.SetStateAction<Medication[]>>;
   setReminders: React.Dispatch<React.SetStateAction<Reminder[]>>;
   setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
   setUser: React.Dispatch<React.SetStateAction<UserProfile>>;
   markReminderAsTaken: (reminderId: string) => void;
+  skipReminder: (reminderId: string) => void;
   rescheduleReminder: (reminderId: string, delayMinutes: number) => string[];
   getTodayStats: () => ReturnType<typeof getTodayStatsUtil>;
   getCurrentStreak: () => number;
@@ -90,6 +93,8 @@ interface AppContextValue extends AppState {
   updateMedication: (med: Medication) => void;
   deleteMedication: (medId: string) => void;
   toggleMedicationActive: (medId: string) => void;
+  addAppointment: (apt: Appointment) => void;
+  deleteAppointment: (aptId: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -102,6 +107,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [streak, setStreak] = useState(0);
+  const [userRole, setUserRole] = useState<"patient" | "caregiver">("patient");
+  const [viewingPatientName, setViewingPatientName] = useState("");
 
   // ── Load all data from Supabase on auth ────────────────────────────────
 
@@ -115,16 +122,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
-      const uid = session.user.id;
+      let uid = session.user.id;
+      let role: "patient" | "caregiver" = "patient";
+      let patientName = "";
+
+      // Auto-create user profile if not exists
+      await supabase.from("users").upsert({
+        id: uid,
+        name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
+        role: "patient",
+      }, { onConflict: "id", ignoreDuplicates: true });
+
+      // Check if this user is a caregiver for someone
+      const userEmail = session.user.email;
+      if (userEmail) {
+        const { data: patientData } = await supabase
+          .from("users")
+          .select("id, name")
+          .eq("caregiver_email", userEmail)
+          .neq("id", uid)
+          .limit(1)
+          .maybeSingle();
+
+        if (patientData) {
+          role = "caregiver";
+          uid = patientData.id;
+          patientName = patientData.name || "Patient";
+        }
+      }
+
+      if (cancelled) return;
       setUserId(uid);
+      setUserRole(role);
+      setViewingPatientName(patientName);
+
+      const today = new Date().toISOString().split("T")[0];
 
       // Fetch all data in parallel
       const [userRes, medsRes, remindersRes, aptsRes, adherenceRes] = await Promise.all([
         supabase.from("users").select("*").eq("id", uid).maybeSingle(),
-        supabase.from("medications").select("*").eq("user_id", uid),
-        supabase.from("reminders").select("*").eq("user_id", uid).eq("scheduled_date", new Date().toISOString().split("T")[0]),
-        supabase.from("appointments").select("*").eq("user_id", uid).order("appointment_datetime", { ascending: true }),
-        supabase.rpc("get_weekly_adherence", { p_user_id: uid }),
+        supabase.from("medications").select("*").eq("user_id", uid).eq("is_active", true).order("created_at", { ascending: true }),
+        supabase.from("reminders").select("*, medications(name, dosage, color)").eq("user_id", uid).eq("scheduled_date", today).order("scheduled_time", { ascending: true }),
+        supabase.from("appointments").select("*").eq("user_id", uid).gte("appointment_datetime", new Date().toISOString()).order("appointment_datetime", { ascending: true }),
+        role === "patient" ? supabase.rpc("get_weekly_adherence", { p_user_id: uid }) : Promise.resolve({ data: null }),
       ]);
 
       if (cancelled) return;
@@ -140,14 +180,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const medNameMap = new Map(meds.map((m) => [m.id, m.name]));
 
       // Reminders from DB
-      const dbReminders = (remindersRes.data || []).map((r: any) =>
-        dbReminderToApp(r, medNameMap.get(r.medication_id) || "Unknown")
-      );
+      const dbReminders = (remindersRes.data || []).map((r: any) => {
+        const medName = r.medications?.name || medNameMap.get(r.medication_id) || "Unknown";
+        return dbReminderToApp(r, medName);
+      });
 
-      // If no DB reminders for today, generate from active meds and insert them
-      if (dbReminders.length === 0 && meds.length > 0) {
+      // If no DB reminders for today and patient role, generate from active meds
+      if (dbReminders.length === 0 && meds.length > 0 && role === "patient") {
         const generated = generateTodayReminders(meds);
-        // Insert into DB
         const rows = generated.map((g) => ({
           user_id: uid,
           medication_id: g.medicationId,
@@ -180,8 +220,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setUserId(session.user.id);
-        // Reload on auth change
         loadData();
       }
     });
@@ -198,7 +236,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     (action) => {
       setUser((prev) => {
         const next = typeof action === "function" ? action(prev) : action;
-        // Persist to DB
         if (userId) {
           const dbData: Record<string, any> = {
             name: next.name,
@@ -221,11 +258,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ── Medication CRUD with persistence ──────────────────────────────────
 
   const addMedication = useCallback((med: Medication) => {
-    setMedications((prev) => {
-      const next = [...prev, med];
-      return next;
-    });
-    // Persist
+    setMedications((prev) => [...prev, med]);
     if (userId) {
       supabase.from("medications").insert({
         id: med.id,
@@ -240,15 +273,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notes: med.notes,
       }).then();
     }
-    // Regenerate today's reminders
     regenerateReminders([...medications, med]);
   }, [userId, medications]);
 
   const updateMedication = useCallback((med: Medication) => {
-    setMedications((prev) => {
-      const next = prev.map((m) => (m.id === med.id ? med : m));
-      return next;
-    });
+    setMedications((prev) => prev.map((m) => (m.id === med.id ? med : m)));
     if (userId) {
       supabase.from("medications").update({
         name: med.name,
@@ -269,7 +298,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMedications((prev) => prev.filter((m) => m.id !== medId));
     setReminders((prev) => prev.filter((r) => r.medicationId !== medId));
     if (userId) {
-      // DB cascading or manual delete
       supabase.from("medications").delete().eq("id", medId).eq("user_id", userId).then();
     }
   }, [userId]);
@@ -286,6 +314,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [userId]);
 
+  // ── Appointment CRUD ──────────────────────────────────────────────────
+
+  const addAppointment = useCallback((apt: Appointment) => {
+    setAppointments((prev) => [...prev, apt].sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()));
+    if (userId) {
+      supabase.from("appointments").insert({
+        id: apt.id,
+        user_id: userId,
+        title: apt.title,
+        doctor_name: apt.doctorName,
+        appointment_datetime: apt.dateTime,
+        location: apt.location,
+        notes: apt.notes,
+        reminder_minutes_before: apt.reminderMinutesBefore,
+      }).then();
+    }
+  }, [userId]);
+
+  const deleteAppointment = useCallback((aptId: string) => {
+    setAppointments((prev) => prev.filter((a) => a.id !== aptId));
+    if (userId) {
+      supabase.from("appointments").delete().eq("id", aptId).eq("user_id", userId).then();
+    }
+  }, [userId]);
+
   // ── Reminder regeneration ─────────────────────────────────────────────
 
   const regenerateReminders = useCallback((newMeds: Medication[]) => {
@@ -300,7 +353,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
       });
 
-      // Insert new reminders into DB
       if (userId && newTodayReminders.length > 0) {
         const rows = newTodayReminders.map((g) => ({
           user_id: userId,
@@ -323,11 +375,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const markReminderAsTaken = useCallback((reminderId: string) => {
     const now = new Date().toISOString();
     setReminders((prev) => markAsTakenUtil(reminderId, prev));
-    // Persist
     if (userId) {
       supabase.from("reminders").update({ status: "taken", taken_at: now }).eq("id", reminderId).eq("user_id", userId).then();
-      // Log the action
       supabase.from("reminder_logs").insert({ reminder_id: reminderId, user_id: userId, action: "taken" }).then();
+    }
+  }, [userId]);
+
+  // ── Skip reminder ─────────────────────────────────────────────────────
+
+  const skipReminder = useCallback((reminderId: string) => {
+    setReminders((prev) =>
+      prev.map((r) => (r.id === reminderId ? { ...r, status: "skipped" as const } : r))
+    );
+    if (userId) {
+      supabase.from("reminders").update({ status: "skipped" }).eq("id", reminderId).eq("user_id", userId).then();
+      supabase.from("reminder_logs").insert({ reminder_id: reminderId, user_id: userId, action: "skipped" }).then();
     }
   }, [userId]);
 
@@ -340,7 +402,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const result = rescheduleReminderUtil(reminderId, delayMinutes, prev, medications);
         conflicts = result.conflicts;
 
-        // Persist: update original, insert rescheduled copy
         if (userId) {
           const original = prev.find((r) => r.id === reminderId);
           if (original) {
@@ -392,11 +453,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         reminders,
         appointments,
         loading,
+        userRole,
+        viewingPatientName,
         setUser: setUserAndPersist,
         setMedications,
         setReminders,
         setAppointments,
         markReminderAsTaken,
+        skipReminder,
         rescheduleReminder: rescheduleReminderAction,
         getTodayStats: todayStats,
         getCurrentStreak: getStreak,
@@ -404,6 +468,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateMedication,
         deleteMedication,
         toggleMedicationActive,
+        addAppointment,
+        deleteAppointment,
       }}
     >
       {children}

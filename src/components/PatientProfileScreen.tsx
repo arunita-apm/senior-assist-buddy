@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Phone } from "lucide-react";
+import { ArrowLeft, Phone, LogOut } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,22 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from "@/components/ui/drawer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import { profileSchema, validateForm } from "@/lib/validation";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 interface PatientProfileScreenProps {
   onBack: () => void;
@@ -23,6 +36,7 @@ interface PatientProfileScreenProps {
 export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
   const { user, setUser, getTodayStats, getCurrentStreak } = useAppContext();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [settings, setSettings] = useState({
     reminderSound: true,
     sevaNotifications: true,
@@ -48,6 +62,15 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
     }));
     setEditOpen(false);
     toast({ description: "Profile updated ✓", duration: 3000, className: "bg-[#E6F7F3] border-[#28BF9C] text-[#28BF9C]" });
+  };
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({ title: "Error signing out", variant: "destructive" });
+    } else {
+      navigate("/auth", { replace: true });
+    }
   };
 
   const openEdit = () => {
@@ -141,6 +164,33 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Sign Out */}
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full h-14 rounded-2xl border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600 font-bold text-base"
+            >
+              <LogOut className="w-5 h-5 mr-2" />
+              Sign Out
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Sign out?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You'll need to sign in again to access your medications and reminders.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleSignOut} className="bg-red-500 hover:bg-red-600">
+                Sign Out
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Footer */}
         <div className="text-center pt-4 pb-2 space-y-1">

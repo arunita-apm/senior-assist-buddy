@@ -58,6 +58,16 @@ const ChartContainer = React.forwardRef<
 });
 ChartContainer.displayName = "Chart";
 
+const sanitizeColor = (color: string): string => {
+  // Allow hex, hsl, rgb, oklch, and CSS variable references only
+  if (/^#[0-9A-Fa-f]{3,8}$/.test(color)) return color;
+  if (/^(hsl|rgb|oklch)a?\([^)]+\)$/.test(color)) return color;
+  if (/^var\(--[a-zA-Z0-9-]+\)$/.test(color)) return color;
+  // Allow raw HSL values like "220 70% 50%"
+  if (/^[\d.]+\s+[\d.]+%\s+[\d.]+%$/.test(color)) return color;
+  return "#000000";
+};
+
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(([_, config]) => config.theme || config.color);
 
@@ -75,7 +85,7 @@ ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
     const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
+    return color ? `  --color-${key}: ${sanitizeColor(color)};` : null;
   })
   .join("\n")}
 }

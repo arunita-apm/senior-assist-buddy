@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/drawer";
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
+import { profileSchema, validateForm } from "@/lib/validation";
 
 interface PatientProfileScreenProps {
   onBack: () => void;
@@ -37,7 +38,8 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
   const initials = user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
   const handleSaveProfile = () => {
-    if (!editName.trim()) return;
+    const validation = validateForm(profileSchema, { name: editName, age: editAge, phone: editPhone });
+    if (!validation.success) return;
     setUser((prev) => ({
       ...prev,
       name: editName.trim(),

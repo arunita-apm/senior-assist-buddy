@@ -40,6 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { Medication } from "@/lib/types";
+import { medicationSchema, validateForm } from "@/lib/validation";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -197,14 +198,15 @@ export const MedicationView = () => {
   // ── save ────────────────────────────────────────────────────────────────
 
   const handleSave = () => {
-    const errs: Record<string, boolean> = {};
-    if (!form.name.trim()) errs.name = true;
-    if (!form.dosage.trim()) errs.dosage = true;
-    if (form.times.length === 0) errs.times = true;
-    if (Object.keys(errs).length > 0) {
+    const validation = validateForm(medicationSchema, { name: form.name, dosage: form.dosage, notes: form.notes });
+    if (!validation.success) {
+      const errs: Record<string, boolean> = {};
+      Object.keys((validation as { success: false; errors: Record<string, string> }).errors).forEach((k) => { errs[k] = true; });
+      if (form.times.length === 0) errs.times = true;
       setErrors(errs);
       return;
     }
+    if (form.times.length === 0) { setErrors({ times: true }); return; }
 
     let gap: number | null = null;
     if (form.frequency !== "once") {

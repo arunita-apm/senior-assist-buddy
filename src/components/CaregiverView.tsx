@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
+import { caregiverSchema, validateForm } from "@/lib/validation";
 
 const RELATIONSHIPS = ["Son", "Daughter", "Spouse", "Sibling", "Friend", "Other"];
 
@@ -62,12 +63,13 @@ export const CaregiverView = () => {
   };
 
   const handleSave = () => {
-    const errs: Record<string, boolean> = {};
-    if (!cgName.trim()) errs.name = true;
-    if (!cgRelationship) errs.relationship = true;
-    if (!cgPhone.trim()) errs.phone = true;
-    if (!cgEmail.trim()) errs.email = true;
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    const validation = validateForm(caregiverSchema, { name: cgName, relationship: cgRelationship, phone: cgPhone, email: cgEmail, note: cgNote });
+    if (!validation.success) {
+      const errs: Record<string, boolean> = {};
+      Object.keys((validation as { success: false; errors: Record<string, string> }).errors).forEach((k) => { errs[k] = true; });
+      setErrors(errs);
+      return;
+    }
 
     const newCg = {
       id: caregiver?.id || `cg-${Date.now()}`,

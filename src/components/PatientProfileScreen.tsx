@@ -194,7 +194,7 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
 
         {/* Footer */}
         <div className="text-center pt-4 pb-2 space-y-1">
-          <p className="text-[13px] text-[#94A3B8] italic">Senior Buddy v1.0</p>
+          <p className="text-[13px] text-[#94A3B8] italic">Guardian v1.0</p>
           <p className="text-[13px] text-[#94A3B8] italic">Built with care for seniors</p>
         </div>
       </div>

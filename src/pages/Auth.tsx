@@ -48,7 +48,7 @@ const Auth = () => {
           <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
             <span className="text-primary-foreground text-2xl font-bold">S</span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Senior Buddy</h1>
+          <h1 className="text-2xl font-bold text-foreground">Guardian</h1>
           <p className="text-muted-foreground text-sm text-center">
             Your personal medication &amp; health companion
           </p>

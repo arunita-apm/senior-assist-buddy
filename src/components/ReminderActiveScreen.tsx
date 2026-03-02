@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Mic, X } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Mic } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -25,7 +25,7 @@ interface ReminderActiveScreenProps {
 }
 
 export const ReminderActiveScreen = ({ reminder, onClose }: ReminderActiveScreenProps) => {
-  const { markReminderAsTaken, rescheduleReminder, medications, setReminders } = useAppContext();
+  const { markReminderAsTaken, rescheduleReminder, medications, skipReminder } = useAppContext();
   const { toast } = useToast();
   const [voiceState, setVoiceState] = useState<VoiceState>("listening");
   const [showSnoozeSheet, setShowSnoozeSheet] = useState(false);
@@ -42,7 +42,6 @@ export const ReminderActiveScreen = ({ reminder, onClose }: ReminderActiveScreen
   const closeAfterDelay = useCallback((ms: number) => {
     setTimeout(() => {
       onClose();
-      // Reset state
       setVoiceState("listening");
       setFlashColor(null);
       setStatusMessage(null);
@@ -66,9 +65,7 @@ export const ReminderActiveScreen = ({ reminder, onClose }: ReminderActiveScreen
 
   const handleSkip = () => {
     if (!reminder) return;
-    setReminders((prev) =>
-      prev.map((r) => (r.id === reminder.id ? { ...r, status: "skipped" as const } : r))
-    );
+    skipReminder(reminder.id);
     setStatusMessage("Noted. Your caregiver will be informed.");
     closeAfterDelay(1500);
   };
@@ -97,16 +94,12 @@ export const ReminderActiveScreen = ({ reminder, onClose }: ReminderActiveScreen
 
   return (
     <>
-      {/* Full-screen overlay */}
       <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: "rgba(15, 23, 42, 0.6)" }}>
-        {/* Green flash */}
         {flashColor && (
           <div className={`absolute inset-0 ${flashColor} opacity-20 animate-fade-in`} />
         )}
 
-        {/* Card */}
         <div className="bg-card rounded-2xl shadow-xl w-[88%] max-w-md p-7 relative flex flex-col items-center gap-5">
-          {/* Pulsing rings */}
           <div className="relative w-20 h-20 flex items-center justify-center">
             <span className="absolute inset-0 rounded-full border-2 border-primary opacity-40 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]" />
             <span className="absolute inset-2 rounded-full border-2 border-primary opacity-25 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite_0.4s]" />
@@ -115,16 +108,13 @@ export const ReminderActiveScreen = ({ reminder, onClose }: ReminderActiveScreen
             </div>
           </div>
 
-          {/* Time */}
           <p className="text-muted-foreground text-base">{formatTime(reminder.scheduledTime)}</p>
 
-          {/* Medication info */}
           <div className="text-center">
             <p className="text-foreground font-bold text-[28px] leading-tight">{reminder.medicationName}</p>
             <p className="text-muted-foreground text-base mt-1">{getDosage()}</p>
           </div>
 
-          {/* Voice status */}
           {statusMessage ? (
             <p className="text-muted-foreground text-sm text-center">{statusMessage}</p>
           ) : (
@@ -135,7 +125,6 @@ export const ReminderActiveScreen = ({ reminder, onClose }: ReminderActiveScreen
             </p>
           )}
 
-          {/* Action buttons */}
           <div className="w-full flex flex-col gap-2">
             <button
               onClick={handleTakeIt}
@@ -159,7 +148,6 @@ export const ReminderActiveScreen = ({ reminder, onClose }: ReminderActiveScreen
         </div>
       </div>
 
-      {/* Snooze options drawer */}
       <Drawer open={showSnoozeSheet} onOpenChange={setShowSnoozeSheet}>
         <DrawerContent className="z-[110]">
           <DrawerHeader>

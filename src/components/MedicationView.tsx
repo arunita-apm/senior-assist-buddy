@@ -137,7 +137,8 @@ function medToForm(med: Medication): FormState {
 // ─── component ──────────────────────────────────────────────────────────────
 
 export const MedicationView = () => {
-  const { medications, addMedication, updateMedication, deleteMedication, toggleMedicationActive } = useAppContext();
+  const { medications, addMedication, updateMedication, deleteMedication, toggleMedicationActive, userRole } = useAppContext();
+  const isCaregiver = userRole === "caregiver";
   const { toast } = useToast();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -229,7 +230,6 @@ export const MedicationView = () => {
     };
 
     if (editingId) {
-      // preserve isActive from existing
       const existing = medications.find((m) => m.id === editingId);
       if (existing) med.isActive = existing.isActive;
       updateMedication(med);
@@ -256,8 +256,6 @@ export const MedicationView = () => {
     toast({ description: "Medication removed", duration: 3000 });
   };
 
-  // ── timesCount for current form ─────────────────────────────────────────
-
   const timesCount = form.frequency === "custom" ? form.customCount : (FREQ_MAP[form.frequency] || 1);
   const showGap = form.frequency !== "once";
 
@@ -273,26 +271,28 @@ export const MedicationView = () => {
             {activeMeds.length} active medication{activeMeds.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button
-                  className="bg-[#28BF9C] hover:bg-[#22a888] text-white rounded-lg h-10 px-4 font-semibold"
-                  onClick={openAdd}
-                  disabled={isMaxed}
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Add
-                </Button>
-              </span>
-            </TooltipTrigger>
-            {isMaxed && (
-              <TooltipContent className="bg-[#FFFBEB] text-[#F59E0B] border-[#F59E0B]">
-                Maximum 10 medications reached (free plan)
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
+        {!isCaregiver && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    className="bg-[#28BF9C] hover:bg-[#22a888] text-white rounded-lg h-10 px-4 font-semibold"
+                    onClick={openAdd}
+                    disabled={isMaxed}
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Add
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {isMaxed && (
+                <TooltipContent className="bg-[#FFFBEB] text-[#F59E0B] border-[#F59E0B]">
+                  Maximum 10 medications reached (free plan)
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
 
       {/* Summary chips */}
@@ -313,13 +313,15 @@ export const MedicationView = () => {
           <CardContent className="py-12 flex flex-col items-center gap-3">
             <Pill className="w-12 h-12 text-[#94A3B8]" />
             <p className="text-[#64748B]">No medications added yet</p>
-            <Button
-              variant="ghost"
-              className="text-[#28BF9C] font-semibold"
-              onClick={openAdd}
-            >
-              + Add your first medication →
-            </Button>
+            {!isCaregiver && (
+              <Button
+                variant="ghost"
+                className="text-[#28BF9C] font-semibold"
+                onClick={openAdd}
+              >
+                + Add your first medication →
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -330,24 +332,22 @@ export const MedicationView = () => {
               className="bg-white rounded-xl shadow-sm border border-[#E2E8F0] overflow-hidden"
             >
               <div className="flex">
-                {/* Left color strip */}
                 <div className="w-1 shrink-0" style={{ backgroundColor: med.color }} />
 
                 <CardContent className="p-4 flex-1 space-y-2">
-                  {/* Row 1: name + toggle */}
                   <div className="flex items-center justify-between">
                     <p className="text-[18px] font-bold text-[#1E293B]">{med.name}</p>
-                    <Switch
-                      checked={med.isActive}
-                      onCheckedChange={() => toggleMedicationActive(med.id)}
-                      className="data-[state=checked]:bg-[#28BF9C] data-[state=unchecked]:bg-[#CBD5E1]"
-                    />
+                    {!isCaregiver && (
+                      <Switch
+                        checked={med.isActive}
+                        onCheckedChange={() => toggleMedicationActive(med.id)}
+                        className="data-[state=checked]:bg-[#28BF9C] data-[state=unchecked]:bg-[#CBD5E1]"
+                      />
+                    )}
                   </div>
 
-                  {/* Row 2: dosage */}
                   <p className="text-[14px] text-[#64748B]">{med.dosage}</p>
 
-                  {/* Row 3: time chips */}
                   <div className="flex flex-wrap gap-1.5">
                     {med.times.map((t, i) => (
                       <span
@@ -359,28 +359,28 @@ export const MedicationView = () => {
                     ))}
                   </div>
 
-                  {/* Row 4: gap warning */}
                   {med.mandatoryGapMinutes && (
                     <p className="text-[13px] text-[#F59E0B]">
                       ⏱ {med.mandatoryGapMinutes} min gap required between doses
                     </p>
                   )}
 
-                  {/* Bottom buttons */}
-                  <div className="flex items-center gap-4 pt-1">
-                    <button
-                      className="flex items-center gap-1 text-base text-muted-foreground hover:text-foreground min-w-[48px] min-h-[48px]"
-                      onClick={() => openEdit(med)}
-                    >
-                      <Pencil className="w-4 h-4" /> Edit
-                    </button>
-                    <button
-                      className="flex items-center gap-1 text-base text-destructive hover:text-destructive/80 min-w-[48px] min-h-[48px]"
-                      onClick={() => setDeletingMed(med)}
-                    >
-                      <Trash2 className="w-4 h-4" /> Delete
-                    </button>
-                  </div>
+                  {!isCaregiver && (
+                    <div className="flex items-center gap-4 pt-1">
+                      <button
+                        className="flex items-center gap-1 text-base text-muted-foreground hover:text-foreground min-w-[48px] min-h-[48px]"
+                        onClick={() => openEdit(med)}
+                      >
+                        <Pencil className="w-4 h-4" /> Edit
+                      </button>
+                      <button
+                        className="flex items-center gap-1 text-base text-destructive hover:text-destructive/80 min-w-[48px] min-h-[48px]"
+                        onClick={() => setDeletingMed(med)}
+                      >
+                        <Trash2 className="w-4 h-4" /> Delete
+                      </button>
+                    </div>
+                  )}
                 </CardContent>
               </div>
             </Card>
@@ -410,227 +410,229 @@ export const MedicationView = () => {
       </AlertDialog>
 
       {/* ── Add / Edit Drawer ────────────────────────────────────────────── */}
-      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DrawerContent className="bg-white rounded-t-2xl max-h-[90vh]">
-          <DrawerHeader className="text-left">
-            <DrawerTitle className="text-xl font-bold text-[#1E293B]">
-              {editingId ? "Edit Medication" : "Add Medication"}
-            </DrawerTitle>
-            <DrawerDescription className="sr-only">
-              {editingId ? "Edit medication details" : "Add a new medication"}
-            </DrawerDescription>
-          </DrawerHeader>
+      {!isCaregiver && (
+        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <DrawerContent className="bg-white rounded-t-2xl max-h-[90vh]">
+            <DrawerHeader className="text-left">
+              <DrawerTitle className="text-xl font-bold text-[#1E293B]">
+                {editingId ? "Edit Medication" : "Add Medication"}
+              </DrawerTitle>
+              <DrawerDescription className="sr-only">
+                {editingId ? "Edit medication details" : "Add a new medication"}
+              </DrawerDescription>
+            </DrawerHeader>
 
-          <div className="overflow-y-auto px-4 pb-4 space-y-5">
-            {/* Name */}
-            <div>
-              <Label htmlFor="med-name" className="text-[13px] text-[#64748B]">Medication Name</Label>
-              <Input
-                id="med-name"
-                name="med-name"
-                autoComplete="off"
-                value={form.name}
-                onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); setErrors((e2) => ({ ...e2, name: false })); }}
-                placeholder="e.g. Amlodipine"
-                className={cn(
-                  "mt-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] placeholder:text-[#94A3B8] rounded-lg",
-                  errors.name && "border-[#EF4444]"
+            <div className="overflow-y-auto px-4 pb-4 space-y-5">
+              {/* Name */}
+              <div>
+                <Label htmlFor="med-name" className="text-[13px] text-[#64748B]">Medication Name</Label>
+                <Input
+                  id="med-name"
+                  name="med-name"
+                  autoComplete="off"
+                  value={form.name}
+                  onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); setErrors((e2) => ({ ...e2, name: false })); }}
+                  placeholder="e.g. Amlodipine"
+                  className={cn(
+                    "mt-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] placeholder:text-[#94A3B8] rounded-lg",
+                    errors.name && "border-[#EF4444]"
+                  )}
+                />
+              </div>
+
+              {/* Dosage */}
+              <div>
+                <Label htmlFor="med-dosage" className="text-[13px] text-[#64748B]">Dosage</Label>
+                <Input
+                  id="med-dosage"
+                  name="med-dosage"
+                  autoComplete="off"
+                  value={form.dosage}
+                  onChange={(e) => { setForm((f) => ({ ...f, dosage: e.target.value })); setErrors((e2) => ({ ...e2, dosage: false })); }}
+                  placeholder="e.g. 5mg, 1 tablet, 2 drops"
+                  className={cn(
+                    "mt-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] placeholder:text-[#94A3B8] rounded-lg",
+                    errors.dosage && "border-[#EF4444]"
+                  )}
+                />
+              </div>
+
+              {/* Frequency */}
+              <div>
+                <Label className="text-[13px] text-[#64748B]">Frequency</Label>
+                <div className="grid grid-cols-4 gap-1.5 mt-1">
+                  {(["once", "twice", "thrice", "custom"] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={cn(
+                        "py-2.5 rounded-lg text-sm font-semibold transition-colors",
+                        form.frequency === f
+                          ? "bg-[#28BF9C] text-white"
+                          : "bg-[#F1F5F9] text-[#64748B]"
+                      )}
+                      onClick={() => setFrequency(f)}
+                    >
+                      {FREQ_LABELS[f]}
+                    </button>
+                  ))}
+                </div>
+                {form.frequency === "custom" && (
+                  <div className="flex items-center gap-3 mt-2">
+                    <button
+                      type="button"
+                      className="w-9 h-9 rounded-lg bg-[#F1F5F9] flex items-center justify-center text-[#64748B]"
+                      onClick={() => setCustomCount(form.customCount - 1)}
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <span className="text-lg font-bold text-[#1E293B] w-6 text-center">{form.customCount}</span>
+                    <button
+                      type="button"
+                      className="w-9 h-9 rounded-lg bg-[#F1F5F9] flex items-center justify-center text-[#64748B]"
+                      onClick={() => setCustomCount(form.customCount + 1)}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    <span className="text-sm text-[#64748B]">times per day</span>
+                  </div>
                 )}
-              />
-            </div>
+              </div>
 
-            {/* Dosage */}
-            <div>
-              <Label htmlFor="med-dosage" className="text-[13px] text-[#64748B]">Dosage</Label>
-              <Input
-                id="med-dosage"
-                name="med-dosage"
-                autoComplete="off"
-                value={form.dosage}
-                onChange={(e) => { setForm((f) => ({ ...f, dosage: e.target.value })); setErrors((e2) => ({ ...e2, dosage: false })); }}
-                placeholder="e.g. 5mg, 1 tablet, 2 drops"
-                className={cn(
-                  "mt-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] placeholder:text-[#94A3B8] rounded-lg",
-                  errors.dosage && "border-[#EF4444]"
-                )}
-              />
-            </div>
-
-            {/* Frequency */}
-            <div>
-              <Label className="text-[13px] text-[#64748B]">Frequency</Label>
-              <div className="grid grid-cols-4 gap-1.5 mt-1">
-                {(["once", "twice", "thrice", "custom"] as const).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    className={cn(
-                      "py-2.5 rounded-lg text-sm font-semibold transition-colors",
-                      form.frequency === f
-                        ? "bg-[#28BF9C] text-white"
-                        : "bg-[#F1F5F9] text-[#64748B]"
-                    )}
-                    onClick={() => setFrequency(f)}
-                  >
-                    {FREQ_LABELS[f]}
-                  </button>
+              {/* Times */}
+              <div className="space-y-3">
+                {Array.from({ length: timesCount }).map((_, i) => (
+                  <div key={i}>
+                    <Label htmlFor={`med-time-${i}`} className="text-[13px] text-[#64748B]">{TIME_LABELS[i] || `Dose ${i + 1}`}</Label>
+                    <Input
+                      id={`med-time-${i}`}
+                      name={`med-time-${i}`}
+                      type="time"
+                      value={form.times[i] || "08:00"}
+                      onChange={(e) => setTimeAt(i, e.target.value)}
+                      className="mt-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg"
+                    />
+                  </div>
                 ))}
               </div>
-              {form.frequency === "custom" && (
-                <div className="flex items-center gap-3 mt-2">
-                  <button
-                    type="button"
-                    className="w-9 h-9 rounded-lg bg-[#F1F5F9] flex items-center justify-center text-[#64748B]"
-                    onClick={() => setCustomCount(form.customCount - 1)}
-                  >
-                    <Minus className="w-4 h-4" />
-                  </button>
-                  <span className="text-lg font-bold text-[#1E293B] w-6 text-center">{form.customCount}</span>
-                  <button
-                    type="button"
-                    className="w-9 h-9 rounded-lg bg-[#F1F5F9] flex items-center justify-center text-[#64748B]"
-                    onClick={() => setCustomCount(form.customCount + 1)}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                  <span className="text-sm text-[#64748B]">times per day</span>
+
+              {/* Mandatory gap */}
+              {showGap && (
+                <div>
+                  <Label className="text-[13px] text-[#64748B]">Minimum time gap between doses</Label>
+                  <p className="text-[13px] text-[#94A3B8] mt-0.5 mb-2">
+                    Set only if your doctor requires a minimum gap. Leave as 'None' if not needed.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {GAP_OPTIONS.map((g) => {
+                      const isSelected =
+                        (g.value === 0 && form.gapMode === "none") ||
+                        (g.value > 0 && form.gapMode === "preset" && form.gapPreset === g.value);
+                      return (
+                        <button
+                          key={g.value}
+                          type="button"
+                          className={cn(
+                            "px-3 py-2 rounded-lg text-sm font-semibold transition-colors",
+                            isSelected ? "bg-[#28BF9C] text-white" : "bg-[#F1F5F9] text-[#64748B]"
+                          )}
+                          onClick={() => {
+                            if (g.value === 0) {
+                              setForm((f) => ({ ...f, gapMode: "none", gapPreset: 0 }));
+                            } else {
+                              setForm((f) => ({ ...f, gapMode: "preset", gapPreset: g.value }));
+                            }
+                          }}
+                        >
+                          {g.label}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      className={cn(
+                        "px-3 py-2 rounded-lg text-sm font-semibold transition-colors",
+                        form.gapMode === "custom" ? "bg-[#28BF9C] text-white" : "bg-[#F1F5F9] text-[#64748B]"
+                      )}
+                      onClick={() => setForm((f) => ({ ...f, gapMode: "custom" }))}
+                    >
+                      Custom
+                    </button>
+                  </div>
+                  {form.gapMode === "custom" && (
+                    <Input
+                      id="med-gap-custom"
+                      name="med-gap-custom"
+                      type="number"
+                      min={1}
+                      placeholder="Minutes"
+                      value={form.gapCustom}
+                      onChange={(e) => setForm((f) => ({ ...f, gapCustom: e.target.value }))}
+                      className="mt-2 h-[44px] w-32 bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg"
+                    />
+                  )}
                 </div>
               )}
-            </div>
 
-            {/* Times */}
-            <div className="space-y-3">
-              {Array.from({ length: timesCount }).map((_, i) => (
-                <div key={i}>
-                  <Label htmlFor={`med-time-${i}`} className="text-[13px] text-[#64748B]">{TIME_LABELS[i] || `Dose ${i + 1}`}</Label>
-                  <Input
-                    id={`med-time-${i}`}
-                    name={`med-time-${i}`}
-                    type="time"
-                    value={form.times[i] || "08:00"}
-                    onChange={(e) => setTimeAt(i, e.target.value)}
-                    className="mt-1 h-[52px] bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg"
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Mandatory gap */}
-            {showGap && (
+              {/* Notes */}
               <div>
-                <Label className="text-[13px] text-[#64748B]">Minimum time gap between doses</Label>
-                <p className="text-[13px] text-[#94A3B8] mt-0.5 mb-2">
-                  Set only if your doctor requires a minimum gap. Leave as 'None' if not needed.
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {GAP_OPTIONS.map((g) => {
-                    const isSelected =
-                      (g.value === 0 && form.gapMode === "none") ||
-                      (g.value > 0 && form.gapMode === "preset" && form.gapPreset === g.value);
-                    return (
-                      <button
-                        key={g.value}
-                        type="button"
-                        className={cn(
-                          "px-3 py-2 rounded-lg text-sm font-semibold transition-colors",
-                          isSelected ? "bg-[#28BF9C] text-white" : "bg-[#F1F5F9] text-[#64748B]"
-                        )}
-                        onClick={() => {
-                          if (g.value === 0) {
-                            setForm((f) => ({ ...f, gapMode: "none", gapPreset: 0 }));
-                          } else {
-                            setForm((f) => ({ ...f, gapMode: "preset", gapPreset: g.value }));
-                          }
-                        }}
-                      >
-                        {g.label}
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    className={cn(
-                      "px-3 py-2 rounded-lg text-sm font-semibold transition-colors",
-                      form.gapMode === "custom" ? "bg-[#28BF9C] text-white" : "bg-[#F1F5F9] text-[#64748B]"
-                    )}
-                    onClick={() => setForm((f) => ({ ...f, gapMode: "custom" }))}
-                  >
-                    Custom
-                  </button>
-                </div>
-                {form.gapMode === "custom" && (
-                  <Input
-                    id="med-gap-custom"
-                    name="med-gap-custom"
-                    type="number"
-                    min={1}
-                    placeholder="Minutes"
-                    value={form.gapCustom}
-                    onChange={(e) => setForm((f) => ({ ...f, gapCustom: e.target.value }))}
-                    className="mt-2 h-[44px] w-32 bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg"
-                  />
-                )}
+                <Label htmlFor="med-notes" className="text-[13px] text-[#64748B]">Notes</Label>
+                <Textarea
+                  id="med-notes"
+                  name="med-notes"
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Any special instructions..."
+                  rows={3}
+                  className="mt-1 bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] placeholder:text-[#94A3B8] rounded-lg"
+                />
               </div>
-            )}
 
-            {/* Notes */}
-            <div>
-              <Label htmlFor="med-notes" className="text-[13px] text-[#64748B]">Notes</Label>
-              <Textarea
-                id="med-notes"
-                name="med-notes"
-                value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                placeholder="Any special instructions..."
-                rows={3}
-                className="mt-1 bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] placeholder:text-[#94A3B8] rounded-lg"
-              />
+              {/* Start date */}
+              <div>
+                <Label className="text-[13px] text-[#64748B]">Start Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="mt-1 w-full h-[52px] justify-start text-left bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg font-normal"
+                    >
+                      <ClockIcon className="w-4 h-4 mr-2 text-[#94A3B8]" />
+                      {format(form.startDate, "PPP")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={form.startDate}
+                      onSelect={(d) => d && setForm((f) => ({ ...f, startDate: d }))}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
-            {/* Start date */}
-            <div>
-              <Label className="text-[13px] text-[#64748B]">Start Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="mt-1 w-full h-[52px] justify-start text-left bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] rounded-lg font-normal"
-                  >
-                    <ClockIcon className="w-4 h-4 mr-2 text-[#94A3B8]" />
-                    {format(form.startDate, "PPP")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={form.startDate}
-                    onSelect={(d) => d && setForm((f) => ({ ...f, startDate: d }))}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+            {/* Bottom action bar */}
+            <div className="sticky bottom-0 bg-white border-t border-[#E2E8F0] px-4 py-3 flex items-center justify-between">
+              <Button
+                variant="ghost"
+                className="text-[#64748B]"
+                onClick={() => setDrawerOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-[#28BF9C] hover:bg-[#22a888] text-white rounded-lg h-12 px-6 font-bold"
+                onClick={handleSave}
+              >
+                {editingId ? "Save Changes" : "Save Medication"}
+              </Button>
             </div>
-          </div>
-
-          {/* Bottom action bar */}
-          <div className="sticky bottom-0 bg-white border-t border-[#E2E8F0] px-4 py-3 flex items-center justify-between">
-            <Button
-              variant="ghost"
-              className="text-[#64748B]"
-              onClick={() => setDrawerOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-[#28BF9C] hover:bg-[#22a888] text-white rounded-lg h-12 px-6 font-bold"
-              onClick={handleSave}
-            >
-              {editingId ? "Save Changes" : "Save Medication"}
-            </Button>
-          </div>
-        </DrawerContent>
-      </Drawer>
+          </DrawerContent>
+        </Drawer>
+      )}
     </div>
   );
 };

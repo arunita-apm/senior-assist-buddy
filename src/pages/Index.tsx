@@ -7,6 +7,7 @@ import { CaregiverView } from "@/components/CaregiverView";
 import { ReminderActiveScreen } from "@/components/ReminderActiveScreen";
 import { VoicePanel } from "@/components/VoicePanel";
 import { PatientProfileScreen } from "@/components/PatientProfileScreen";
+import { useAppContext } from "@/context/AppContext";
 import type { Reminder } from "@/lib/types";
 
 const tabs = [
@@ -23,6 +24,8 @@ const Index = () => {
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(null);
   const [voicePanelOpen, setVoicePanelOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const { userRole, viewingPatientName } = useAppContext();
+  const isCaregiver = userRole === "caregiver";
 
   if (showProfile) {
     return <PatientProfileScreen onBack={() => setShowProfile(false)} />;
@@ -30,11 +33,26 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Caregiver read-only banner */}
+      {isCaregiver && (
+        <div
+          className="w-full px-4 py-2 text-center border-b-2"
+          style={{
+            backgroundColor: "#FFFBEB",
+            borderBottomColor: "#F59E0B",
+            color: "#92400E",
+            fontSize: "13px",
+          }}
+        >
+          Viewing {viewingPatientName}'s medications (read-only)
+        </div>
+      )}
+
       <main className="flex-1 overflow-y-auto pb-24 px-4 sm:px-6 py-6">
         {activeTab === "home" && (
           <DashboardView
             onNavigate={(tab) => setActiveTab(tab as TabId)}
-            onTestReminder={(r) => setActiveReminder(r)}
+            onTestReminder={isCaregiver ? undefined : (r) => setActiveReminder(r)}
             onAvatarTap={() => setShowProfile(true)}
           />
         )}
@@ -43,19 +61,23 @@ const Index = () => {
         {activeTab === "caregiver" && <CaregiverView />}
       </main>
 
-      {/* Ask Seva label + Floating mic FAB */}
-      {!voicePanelOpen && (
-        <span className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-50 text-[11px] font-semibold text-primary pointer-events-none select-none">
-          Ask Seva
-        </span>
+      {/* Ask Seva label + Floating mic FAB — hidden for caregivers */}
+      {!isCaregiver && (
+        <>
+          {!voicePanelOpen && (
+            <span className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-50 text-[11px] font-semibold text-primary pointer-events-none select-none">
+              Ask Seva
+            </span>
+          )}
+          <button
+            onClick={() => setVoicePanelOpen(true)}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-14 h-14 rounded-full bg-accent text-accent-foreground flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform"
+            aria-label="Voice assistant"
+          >
+            <Mic className="w-6 h-6" />
+          </button>
+        </>
       )}
-      <button
-        onClick={() => setVoicePanelOpen(true)}
-        className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-14 h-14 rounded-full bg-accent text-accent-foreground flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform"
-        aria-label="Voice assistant"
-      >
-        <Mic className="w-6 h-6" />
-      </button>
 
       {/* Bottom navigation bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-nav-background border-t border-border">
@@ -96,11 +118,13 @@ const Index = () => {
       />
 
       {/* Voice panel */}
-      <VoicePanel
-        open={voicePanelOpen}
-        onClose={() => setVoicePanelOpen(false)}
-        onNavigate={(tab) => setActiveTab(tab as TabId)}
-      />
+      {!isCaregiver && (
+        <VoicePanel
+          open={voicePanelOpen}
+          onClose={() => setVoicePanelOpen(false)}
+          onNavigate={(tab) => setActiveTab(tab as TabId)}
+        />
+      )}
     </div>
   );
 };

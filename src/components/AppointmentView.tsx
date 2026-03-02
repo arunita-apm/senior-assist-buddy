@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths, isAfter } from "date-fns";
+import { appointmentSchema, validateForm } from "@/lib/validation";
 
 type Appointment = {
   id: number;
@@ -77,6 +78,11 @@ export const AppointmentView = () => {
   const resetForm = () => setFormData({ doctor: "", specialty: "", date: "", time: "", location: "", phone: "", notes: "" });
 
   const handleAdd = () => {
+    const validation = validateForm(appointmentSchema, formData);
+    if (!validation.success) {
+      toast({ title: "Please fill in all required fields correctly", variant: "destructive" });
+      return;
+    }
     const newApt: Appointment = {
       id: Math.max(...appointments.map(a => a.id), 0) + 1,
       ...formData,
@@ -90,6 +96,11 @@ export const AppointmentView = () => {
 
   const handleEdit = () => {
     if (!editingApt) return;
+    const validation = validateForm(appointmentSchema, formData);
+    if (!validation.success) {
+      toast({ title: "Please fill in all required fields correctly", variant: "destructive" });
+      return;
+    }
     setAppointments(appointments.map(a => a.id === editingApt.id ? { ...a, ...formData } : a));
     setEditingApt(null);
     resetForm();

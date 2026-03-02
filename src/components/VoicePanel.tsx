@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { X, Send, Pill, Clock, CalendarPlus, HelpCircle } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
+import { voiceInputSchema } from "@/lib/validation";
 
 interface VoicePanelProps {
   open: boolean;
@@ -58,7 +59,12 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
   }, [onClose, onNavigate]);
 
   const handleTextSend = useCallback(() => {
-    const input = textInput.toLowerCase().trim();
+    const parsed = voiceInputSchema.safeParse(textInput);
+    if (!parsed.success) {
+      toast({ description: "Input too long (max 200 chars)" });
+      return;
+    }
+    const input = parsed.data.toLowerCase();
     if (!input) return;
     setTextInput("");
 

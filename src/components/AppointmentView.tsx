@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { posthog } from "@/lib/posthog";
 import { Plus, Calendar, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export const AppointmentView = () => {
   const resetForm = () => setFormData({ title: "", doctor: "", specialty: "", date: "", time: "", location: "", notes: "" });
 
   const handleAdd = () => {
+    posthog.capture("add_appointment_clicked");
     if (!formData.doctor.trim() || !formData.date || !formData.time) {
       toast({ title: "Please fill in doctor, date, and time", variant: "destructive" });
       return;

@@ -8,6 +8,7 @@ import { ReminderActiveScreen } from "@/components/ReminderActiveScreen";
 import { VoicePanel } from "@/components/VoicePanel";
 import { PatientProfileScreen } from "@/components/PatientProfileScreen";
 import { useAppContext } from "@/context/AppContext";
+import { posthog } from "@/lib/posthog";
 import type { Reminder } from "@/lib/types";
 
 const tabs = [
@@ -65,12 +66,28 @@ const Index = () => {
       {!isCaregiver && (
         <>
           {!voicePanelOpen && (
-            <span className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-50 text-[11px] font-semibold text-primary pointer-events-none select-none">
+            <div
+              style={{
+                position: "fixed",
+                bottom: "88px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                color: "#28BF9C",
+                fontSize: "11px",
+                fontWeight: "600",
+                letterSpacing: "0.5px",
+                zIndex: 50,
+                pointerEvents: "none",
+              }}
+            >
               Ask Seva
-            </span>
+            </div>
           )}
           <button
-            onClick={() => setVoicePanelOpen(true)}
+            onClick={() => {
+              posthog.capture("seva_mic_clicked");
+              setVoicePanelOpen(true);
+            }}
             className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-14 h-14 rounded-full bg-accent text-accent-foreground flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform"
             aria-label="Voice assistant"
           >

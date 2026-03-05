@@ -3,6 +3,7 @@ import { X, Send, Pill, Clock, CalendarPlus, HelpCircle } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import { voiceInputSchema } from "@/lib/validation";
+import { posthog } from "@/lib/posthog";
 
 interface VoicePanelProps {
   open: boolean;
@@ -158,7 +159,10 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
             className="flex-1 h-12 rounded-lg bg-secondary border border-border px-3 text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <button
-            onClick={handleTextSend}
+            onClick={() => {
+              posthog.capture("seva_text_sent", { command: textInput });
+              handleTextSend();
+            }}
             className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center shrink-0 hover:opacity-90 active:scale-95 transition-all"
           >
             <Send className="w-5 h-5 text-primary-foreground" />

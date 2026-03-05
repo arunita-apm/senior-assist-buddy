@@ -28,13 +28,14 @@ import { useToast } from "@/hooks/use-toast";
 import { profileSchema, validateForm } from "@/lib/validation";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { posthog } from "@/lib/posthog";
 
 interface PatientProfileScreenProps {
   onBack: () => void;
 }
 
 export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
-  const { user, setUser, getTodayStats, getCurrentStreak } = useAppContext();
+  const { user, setUser, getTodayStats, getCurrentStreak, userId } = useAppContext();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [settings, setSettings] = useState({
@@ -51,24 +52,46 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
   const streak = getCurrentStreak();
   const initials = user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     const validation = validateForm(profileSchema, { name: editName, age: editAge, phone: editPhone });
     if (!validation.success) return;
+
+    const newName = editName.trim();
+    const newAge = parseInt(editAge, 10) || user.age;
+    const newPhone = editPhone.trim();
+
+    if (userId) {
+      const { error } = await supabase.from("users").update({
+        name: newName,
+        age: newAge,
+        phone: newPhone,
+        updated_at: new Date().toISOString(),
+      }).eq("id", userId);
+
+      if (error) {
+        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "profile", error_message: error.message });
+        toast({ title: "Failed to update profile", variant: "destructive" });
+        return;
+      }
+    }
+
     setUser((prev) => ({
       ...prev,
-      name: editName.trim(),
-      age: parseInt(editAge, 10) || prev.age,
-      phone: editPhone.trim(),
+      name: newName,
+      age: newAge,
+      phone: newPhone,
     }));
     setEditOpen(false);
     toast({ description: "Profile updated ✓", duration: 3000, className: "bg-[#E6F7F3] border-[#28BF9C] text-[#28BF9C]" });
   };
 
   const handleSignOut = async () => {
+    posthog.capture("signout_clicked");
     const { error } = await supabase.auth.signOut();
     if (error) {
       toast({ title: "Error signing out", variant: "destructive" });
     } else {
+      posthog.reset();
       navigate("/auth", { replace: true });
     }
   };
@@ -168,13 +191,12 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
         {/* Sign Out */}
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full h-14 rounded-2xl border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600 font-bold text-base"
+            <button
+              className="w-full h-12 rounded-xl border border-[#EF4444] text-[#EF4444] font-bold text-base flex items-center justify-center gap-2 mt-6 hover:bg-red-50 transition-colors"
             >
-              <LogOut className="w-5 h-5 mr-2" />
+              <LogOut className="w-5 h-5" />
               Sign Out
-            </Button>
+            </button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>

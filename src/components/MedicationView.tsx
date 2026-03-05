@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { posthog } from "@/lib/posthog";
 import { Plus, Pill, Pencil, Trash2, Clock as ClockIcon, Minus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -154,6 +155,7 @@ export const MedicationView = () => {
   // ── drawer open helpers ─────────────────────────────────────────────────
 
   const openAdd = () => {
+    posthog.capture("add_medication_clicked");
     setEditingId(null);
     setForm(emptyForm());
     setErrors({});
@@ -161,6 +163,7 @@ export const MedicationView = () => {
   };
 
   const openEdit = (med: Medication) => {
+    posthog.capture("edit_medication_clicked", { med_name: med.name });
     setEditingId(med.id);
     setForm(medToForm(med));
     setErrors({});
@@ -251,6 +254,7 @@ export const MedicationView = () => {
 
   const handleDelete = () => {
     if (!deletingMed) return;
+    posthog.capture("delete_medication_clicked", { med_name: deletingMed.name });
     deleteMedication(deletingMed.id);
     setDeletingMed(null);
     toast({ description: "Medication removed", duration: 3000 });

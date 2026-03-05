@@ -7,6 +7,7 @@ import {
   getTodayStats as getTodayStatsUtil,
   generateTodayReminders,
 } from "@/lib/reminderUtils";
+import { posthog } from "@/lib/posthog";
 
 // ── DB ↔ App type mappers ──────────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ const defaultUser: UserProfile = { name: "User", age: 0, phone: "", role: "senio
 
 interface AppContextValue extends AppState {
   loading: boolean;
+  userId: string | null;
   userRole: "patient" | "caregiver";
   viewingPatientName: string;
   setMedications: React.Dispatch<React.SetStateAction<Medication[]>>;
@@ -95,6 +97,7 @@ interface AppContextValue extends AppState {
   toggleMedicationActive: (medId: string) => void;
   addAppointment: (apt: Appointment) => void;
   deleteAppointment: (aptId: string) => void;
+  reloadData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -112,110 +115,118 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ── Load all data from Supabase on auth ────────────────────────────────
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadData = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user || cancelled) {
-        setLoading(false);
-        return;
-      }
-
-      let uid = session.user.id;
-      let role: "patient" | "caregiver" = "patient";
-      let patientName = "";
-
-      // Auto-create user profile if not exists
-      await supabase.from("users").upsert({
-        id: uid,
-        name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
-        role: "patient",
-      }, { onConflict: "id", ignoreDuplicates: true });
-
-      // Check if this user is a caregiver for someone
-      const userEmail = session.user.email;
-      if (userEmail) {
-        const { data: patientData } = await supabase
-          .from("users")
-          .select("id, name")
-          .eq("caregiver_email", userEmail)
-          .neq("id", uid)
-          .limit(1)
-          .maybeSingle();
-
-        if (patientData) {
-          role = "caregiver";
-          uid = patientData.id;
-          patientName = patientData.name || "Patient";
-        }
-      }
-
-      if (cancelled) return;
-      setUserId(uid);
-      setUserRole(role);
-      setViewingPatientName(patientName);
-
-      const today = new Date().toISOString().split("T")[0];
-
-      // Fetch all data in parallel
-      const [userRes, medsRes, remindersRes, aptsRes, adherenceRes] = await Promise.all([
-        supabase.from("users").select("*").eq("id", uid).maybeSingle(),
-        supabase.from("medications").select("*").eq("user_id", uid).eq("is_active", true).order("created_at", { ascending: true }),
-        supabase.from("reminders").select("*, medications(name, dosage, color)").eq("user_id", uid).eq("scheduled_date", today).order("scheduled_time", { ascending: true }),
-        supabase.from("appointments").select("*").eq("user_id", uid).gte("appointment_datetime", new Date().toISOString()).order("appointment_datetime", { ascending: true }),
-        role === "patient" ? supabase.rpc("get_weekly_adherence", { p_user_id: uid }) : Promise.resolve({ data: null }),
-      ]);
-
-      if (cancelled) return;
-
-      // User
-      if (userRes.data) setUser(dbUserToApp(userRes.data));
-
-      // Medications
-      const meds = (medsRes.data || []).map(dbMedToApp);
-      setMedications(meds);
-
-      // Build med name lookup
-      const medNameMap = new Map(meds.map((m) => [m.id, m.name]));
-
-      // Reminders from DB
-      const dbReminders = (remindersRes.data || []).map((r: any) => {
-        const medName = r.medications?.name || medNameMap.get(r.medication_id) || "Unknown";
-        return dbReminderToApp(r, medName);
-      });
-
-      // If no DB reminders for today and patient role, generate from active meds
-      if (dbReminders.length === 0 && meds.length > 0 && role === "patient") {
-        const generated = generateTodayReminders(meds);
-        const rows = generated.map((g) => ({
-          user_id: uid,
-          medication_id: g.medicationId,
-          scheduled_date: g.date,
-          scheduled_time: g.scheduledTime,
-          status: "pending",
-        }));
-        if (rows.length > 0) {
-          const { data: inserted } = await supabase.from("reminders").insert(rows).select();
-          if (inserted) {
-            setReminders(inserted.map((r: any) => dbReminderToApp(r, medNameMap.get(r.medication_id) || "Unknown")));
-          }
-        }
-      } else {
-        setReminders(dbReminders);
-      }
-
-      // Appointments
-      setAppointments((aptsRes.data || []).map(dbAppointmentToApp));
-
-      // Streak
-      if (adherenceRes.data && (adherenceRes.data as any[]).length > 0) {
-        setStreak((adherenceRes.data as any[])[0]?.current_streak || 0);
-      }
-
+  const loadData = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
       setLoading(false);
-    };
+      return;
+    }
 
+    let uid = session.user.id;
+    let role: "patient" | "caregiver" = "patient";
+    let patientName = "";
+
+    // Auto-create user profile if not exists
+    await supabase.from("users").upsert({
+      id: uid,
+      name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
+      role: "patient",
+    }, { onConflict: "id", ignoreDuplicates: true });
+
+    // Check if this user is a caregiver for someone
+    const userEmail = session.user.email;
+    if (userEmail) {
+      const { data: patientData } = await supabase
+        .from("users")
+        .select("id, name")
+        .eq("caregiver_email", userEmail)
+        .neq("id", uid)
+        .limit(1)
+        .maybeSingle();
+
+      if (patientData) {
+        role = "caregiver";
+        uid = patientData.id;
+        patientName = patientData.name || "Patient";
+      }
+    }
+
+    setUserId(uid);
+    setUserRole(role);
+    setViewingPatientName(patientName);
+
+    // Identify user in PostHog
+    posthog.identify(session.user.id, {
+      name: session.user.user_metadata?.full_name || session.user.email,
+      email: session.user.email,
+      role,
+      device: navigator.userAgent.includes("Android") ? "Android" : "Other",
+      signup_date: new Date().toISOString().split("T")[0],
+    });
+    posthog.capture("app_opened", { source: "direct" });
+
+    const today = new Date().toISOString().split("T")[0];
+
+    // Fetch all data in parallel
+    const [userRes, medsRes, remindersRes, aptsRes, adherenceRes] = await Promise.all([
+      supabase.from("users").select("*").eq("id", uid).maybeSingle(),
+      supabase.from("medications").select("*").eq("user_id", uid).eq("is_active", true).order("created_at", { ascending: true }),
+      supabase.from("reminders").select("*, medications(name, dosage, color)").eq("user_id", uid).eq("scheduled_date", today).order("scheduled_time", { ascending: true }),
+      supabase.from("appointments").select("*").eq("user_id", uid).gte("appointment_datetime", new Date().toISOString()).order("appointment_datetime", { ascending: true }),
+      role === "patient" ? supabase.rpc("get_weekly_adherence", { p_user_id: uid }) : Promise.resolve({ data: null }),
+    ]);
+
+    // User
+    if (userRes.data) setUser(dbUserToApp(userRes.data));
+
+    // Medications
+    const meds = (medsRes.data || []).map(dbMedToApp);
+    setMedications(meds);
+
+    // Build med name lookup
+    const medNameMap = new Map(meds.map((m) => [m.id, m.name]));
+
+    // Reminders from DB
+    const dbReminders = (remindersRes.data || []).map((r: any) => {
+      const medName = r.medications?.name || medNameMap.get(r.medication_id) || "Unknown";
+      return dbReminderToApp(r, medName);
+    });
+
+    // If no DB reminders for today and patient role, generate from active meds
+    if (dbReminders.length === 0 && meds.length > 0 && role === "patient") {
+      const generated = generateTodayReminders(meds);
+      const rows = generated.map((g) => ({
+        user_id: uid,
+        medication_id: g.medicationId,
+        scheduled_date: g.date,
+        scheduled_time: g.scheduledTime,
+        status: "pending",
+      }));
+      if (rows.length > 0) {
+        const { data: inserted } = await supabase.from("reminders").insert(rows).select("*, medications(name, dosage, color)");
+        if (inserted) {
+          setReminders(inserted.map((r: any) => {
+            const medName = r.medications?.name || medNameMap.get(r.medication_id) || "Unknown";
+            return dbReminderToApp(r, medName);
+          }));
+        }
+      }
+    } else {
+      setReminders(dbReminders);
+    }
+
+    // Appointments
+    setAppointments((aptsRes.data || []).map(dbAppointmentToApp));
+
+    // Streak
+    if (adherenceRes.data && (adherenceRes.data as any[]).length > 0) {
+      setStreak((adherenceRes.data as any[])[0]?.current_streak || 0);
+    }
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
     loadData();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -225,10 +236,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     return () => {
-      cancelled = true;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadData]);
 
   // ── User profile persistence ──────────────────────────────────────────
 
@@ -257,139 +267,190 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ── Medication CRUD with persistence ──────────────────────────────────
 
-  const addMedication = useCallback((med: Medication) => {
-    setMedications((prev) => [...prev, med]);
-    if (userId) {
-      supabase.from("medications").insert({
-        id: med.id,
-        user_id: userId,
-        name: med.name,
-        dosage: med.dosage,
-        frequency: med.frequency,
-        times: med.times,
-        mandatory_gap_minutes: med.mandatoryGapMinutes,
-        is_active: med.isActive,
-        color: med.color,
-        notes: med.notes,
-      }).then();
-    }
-    regenerateReminders([...medications, med]);
-  }, [userId, medications]);
+  const addMedication = useCallback(async (med: Medication) => {
+    if (!userId) return;
+    const { data, error } = await supabase.from("medications").insert({
+      id: med.id,
+      user_id: userId,
+      name: med.name,
+      dosage: med.dosage,
+      frequency: med.frequency,
+      times: med.times,
+      mandatory_gap_minutes: med.mandatoryGapMinutes,
+      is_active: med.isActive,
+      color: med.color,
+      notes: med.notes,
+    }).select().single();
 
-  const updateMedication = useCallback((med: Medication) => {
-    setMedications((prev) => prev.map((m) => (m.id === med.id ? med : m)));
-    if (userId) {
-      supabase.from("medications").update({
-        name: med.name,
-        dosage: med.dosage,
-        frequency: med.frequency,
-        times: med.times,
-        mandatory_gap_minutes: med.mandatoryGapMinutes,
-        is_active: med.isActive,
-        color: med.color,
-        notes: med.notes,
-        updated_at: new Date().toISOString(),
-      }).eq("id", med.id).eq("user_id", userId).then();
+    if (error) {
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "medications", error_message: error.message });
+      return;
     }
-    regenerateReminders(medications.map((m) => (m.id === med.id ? med : m)));
-  }, [userId, medications]);
 
-  const deleteMedication = useCallback((medId: string) => {
-    setMedications((prev) => prev.filter((m) => m.id !== medId));
-    setReminders((prev) => prev.filter((r) => r.medicationId !== medId));
-    if (userId) {
-      supabase.from("medications").delete().eq("id", medId).eq("user_id", userId).then();
-    }
-  }, [userId]);
+    posthog.capture("medication_saved", { med_name: med.name, times_count: med.times.length, has_gap: !!med.mandatoryGapMinutes });
 
-  const toggleMedicationActive = useCallback((medId: string) => {
-    setMedications((prev) => {
-      const next = prev.map((m) => (m.id === medId ? { ...m, isActive: !m.isActive } : m));
-      const toggled = next.find((m) => m.id === medId);
-      if (userId && toggled) {
-        supabase.from("medications").update({ is_active: toggled.isActive, updated_at: new Date().toISOString() }).eq("id", medId).eq("user_id", userId).then();
+    // Reload medications and generate reminders
+    const { data: medsData } = await supabase.from("medications").select("*").eq("user_id", userId).eq("is_active", true).order("created_at", { ascending: true });
+    if (medsData) setMedications(medsData.map(dbMedToApp));
+
+    // Generate today's reminders for the new med
+    const today = new Date().toISOString().split("T")[0];
+    const reminderRows = med.times.map((t) => ({
+      user_id: userId,
+      medication_id: data.id,
+      scheduled_date: today,
+      scheduled_time: t,
+      status: "pending",
+    }));
+    if (reminderRows.length > 0) {
+      await supabase.from("reminders").insert(reminderRows);
+      // Reload reminders
+      const { data: remData } = await supabase.from("reminders").select("*, medications(name, dosage, color)").eq("user_id", userId).eq("scheduled_date", today).order("scheduled_time", { ascending: true });
+      if (remData) {
+        const medMap = new Map((medsData || []).map((m: any) => [m.id, m.name]));
+        setReminders(remData.map((r: any) => dbReminderToApp(r, r.medications?.name || medMap.get(r.medication_id) || "Unknown")));
       }
-      regenerateReminders(next);
-      return next;
-    });
+    }
   }, [userId]);
+
+  const updateMedication = useCallback(async (med: Medication) => {
+    if (!userId) return;
+    const { error } = await supabase.from("medications").update({
+      name: med.name,
+      dosage: med.dosage,
+      frequency: med.frequency,
+      times: med.times,
+      mandatory_gap_minutes: med.mandatoryGapMinutes,
+      is_active: med.isActive,
+      color: med.color,
+      notes: med.notes,
+      updated_at: new Date().toISOString(),
+    }).eq("id", med.id).eq("user_id", userId);
+
+    if (error) {
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "medications", error_message: error.message });
+      return;
+    }
+
+    posthog.capture("medication_updated", { med_name: med.name });
+
+    // Reload
+    const { data: medsData } = await supabase.from("medications").select("*").eq("user_id", userId).eq("is_active", true).order("created_at", { ascending: true });
+    if (medsData) setMedications(medsData.map(dbMedToApp));
+
+    // Regenerate today's reminders
+    await regenerateRemindersFromDB();
+  }, [userId]);
+
+  const deleteMedication = useCallback(async (medId: string) => {
+    if (!userId) return;
+    const med = medications.find((m) => m.id === medId);
+    const { error } = await supabase.from("medications").update({ is_active: false }).eq("id", medId).eq("user_id", userId);
+
+    if (error) {
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "medications", error_message: error.message });
+      return;
+    }
+
+    posthog.capture("medication_deleted", { med_name: med?.name });
+
+    // Reload
+    const { data: medsData } = await supabase.from("medications").select("*").eq("user_id", userId).eq("is_active", true).order("created_at", { ascending: true });
+    if (medsData) setMedications(medsData.map(dbMedToApp));
+    setReminders((prev) => prev.filter((r) => r.medicationId !== medId));
+  }, [userId, medications]);
+
+  const toggleMedicationActive = useCallback(async (medId: string) => {
+    if (!userId) return;
+    const med = medications.find((m) => m.id === medId);
+    if (!med) return;
+    const newActive = !med.isActive;
+    await supabase.from("medications").update({ is_active: newActive, updated_at: new Date().toISOString() }).eq("id", medId).eq("user_id", userId);
+
+    const { data: medsData } = await supabase.from("medications").select("*").eq("user_id", userId).eq("is_active", true).order("created_at", { ascending: true });
+    if (medsData) setMedications(medsData.map(dbMedToApp));
+    await regenerateRemindersFromDB();
+  }, [userId, medications]);
 
   // ── Appointment CRUD ──────────────────────────────────────────────────
 
-  const addAppointment = useCallback((apt: Appointment) => {
-    setAppointments((prev) => [...prev, apt].sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()));
-    if (userId) {
-      supabase.from("appointments").insert({
-        id: apt.id,
-        user_id: userId,
-        title: apt.title,
-        doctor_name: apt.doctorName,
-        appointment_datetime: apt.dateTime,
-        location: apt.location,
-        notes: apt.notes,
-        reminder_minutes_before: apt.reminderMinutesBefore,
-      }).then();
-    }
-  }, [userId]);
-
-  const deleteAppointment = useCallback((aptId: string) => {
-    setAppointments((prev) => prev.filter((a) => a.id !== aptId));
-    if (userId) {
-      supabase.from("appointments").delete().eq("id", aptId).eq("user_id", userId).then();
-    }
-  }, [userId]);
-
-  // ── Reminder regeneration ─────────────────────────────────────────────
-
-  const regenerateReminders = useCallback((newMeds: Medication[]) => {
-    const today = new Date().toISOString().split("T")[0];
-    setReminders((prev) => {
-      const keptReminders = prev.filter(
-        (r) => r.date !== today || r.status === "taken" || r.status === "rescheduled"
-      );
-      const newTodayReminders = generateTodayReminders(newMeds).filter((nr) => {
-        return !keptReminders.some(
-          (kr) => kr.medicationId === nr.medicationId && kr.scheduledTime === nr.scheduledTime && kr.date === today
-        );
-      });
-
-      if (userId && newTodayReminders.length > 0) {
-        const rows = newTodayReminders.map((g) => ({
-          user_id: userId,
-          medication_id: g.medicationId,
-          scheduled_date: g.date,
-          scheduled_time: g.scheduledTime,
-          status: "pending",
-        }));
-        supabase.from("reminders").insert(rows).then();
-      }
-
-      return [...keptReminders, ...newTodayReminders].sort((a, b) =>
-        a.scheduledTime.localeCompare(b.scheduledTime)
-      );
+  const addAppointment = useCallback(async (apt: Appointment) => {
+    if (!userId) return;
+    const { error } = await supabase.from("appointments").insert({
+      id: apt.id,
+      user_id: userId,
+      title: apt.title,
+      doctor_name: apt.doctorName,
+      appointment_datetime: apt.dateTime,
+      location: apt.location,
+      notes: apt.notes,
+      reminder_minutes_before: apt.reminderMinutesBefore,
     });
+
+    if (error) {
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "appointments", error_message: error.message });
+      return;
+    }
+
+    posthog.capture("appointment_saved");
+
+    // Reload
+    const { data: aptsData } = await supabase.from("appointments").select("*").eq("user_id", userId).gte("appointment_datetime", new Date().toISOString()).order("appointment_datetime", { ascending: true });
+    if (aptsData) setAppointments(aptsData.map(dbAppointmentToApp));
+  }, [userId]);
+
+  const deleteAppointment = useCallback(async (aptId: string) => {
+    if (!userId) return;
+    const { error } = await supabase.from("appointments").delete().eq("id", aptId).eq("user_id", userId);
+
+    if (error) {
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "appointments", error_message: error.message });
+      return;
+    }
+
+    // Reload
+    const { data: aptsData } = await supabase.from("appointments").select("*").eq("user_id", userId).gte("appointment_datetime", new Date().toISOString()).order("appointment_datetime", { ascending: true });
+    if (aptsData) setAppointments(aptsData.map(dbAppointmentToApp));
+  }, [userId]);
+
+  // ── Reminder helpers ──────────────────────────────────────────────────
+
+  const regenerateRemindersFromDB = useCallback(async () => {
+    if (!userId) return;
+    const today = new Date().toISOString().split("T")[0];
+    const { data: remData } = await supabase.from("reminders").select("*, medications(name, dosage, color)").eq("user_id", userId).eq("scheduled_date", today).order("scheduled_time", { ascending: true });
+    if (remData) {
+      setReminders(remData.map((r: any) => dbReminderToApp(r, r.medications?.name || "Unknown")));
+    }
   }, [userId]);
 
   // ── Mark reminder taken ───────────────────────────────────────────────
 
-  const markReminderAsTaken = useCallback((reminderId: string) => {
+  const markReminderAsTaken = useCallback(async (reminderId: string) => {
     const now = new Date().toISOString();
     setReminders((prev) => markAsTakenUtil(reminderId, prev));
+
     if (userId) {
-      supabase.from("reminders").update({ status: "taken", taken_at: now }).eq("id", reminderId).eq("user_id", userId).then();
-      supabase.from("reminder_logs").insert({ reminder_id: reminderId, user_id: userId, action: "taken" }).then();
+      const { error } = await supabase.from("reminders").update({ status: "taken", taken_at: now }).eq("id", reminderId).eq("user_id", userId);
+      if (error) {
+        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "reminders", error_message: error.message });
+      }
+      await supabase.from("reminder_logs").insert({ reminder_id: reminderId, user_id: userId, action: "taken" });
     }
   }, [userId]);
 
   // ── Skip reminder ─────────────────────────────────────────────────────
 
-  const skipReminder = useCallback((reminderId: string) => {
+  const skipReminder = useCallback(async (reminderId: string) => {
     setReminders((prev) =>
       prev.map((r) => (r.id === reminderId ? { ...r, status: "skipped" as const } : r))
     );
     if (userId) {
-      supabase.from("reminders").update({ status: "skipped" }).eq("id", reminderId).eq("user_id", userId).then();
-      supabase.from("reminder_logs").insert({ reminder_id: reminderId, user_id: userId, action: "skipped" }).then();
+      const { error } = await supabase.from("reminders").update({ status: "skipped" }).eq("id", reminderId).eq("user_id", userId);
+      if (error) {
+        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "reminders", error_message: error.message });
+      }
+      await supabase.from("reminder_logs").insert({ reminder_id: reminderId, user_id: userId, action: "skipped" });
     }
   }, [userId]);
 
@@ -453,6 +514,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         reminders,
         appointments,
         loading,
+        userId,
         userRole,
         viewingPatientName,
         setUser: setUserAndPersist,
@@ -470,6 +532,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleMedicationActive,
         addAppointment,
         deleteAppointment,
+        reloadData: loadData,
       }}
     >
       {children}

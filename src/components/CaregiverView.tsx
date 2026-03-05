@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { posthog } from "@/lib/posthog";
 import { Users, Phone, Mail } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,7 @@ export const CaregiverView = () => {
   };
 
   const handleSave = () => {
+    posthog.capture("add_caregiver_clicked");
     const validation = validateForm(caregiverSchema, { name: cgName, relationship: cgRelationship, phone: cgPhone, email: cgEmail, note: cgNote });
     if (!validation.success) {
       const errs: Record<string, boolean> = {};
@@ -82,6 +84,7 @@ export const CaregiverView = () => {
     };
     setUser((prev) => ({ ...prev, caregiver: newCg }));
     setDrawerOpen(false);
+    posthog.capture("caregiver_saved", { has_email: !!cgEmail.trim() });
     toast({ description: isEditing ? "Caregiver updated ✓" : "Caregiver added ✓", duration: 3000, className: "bg-[#E6F7F3] border-[#28BF9C] text-[#28BF9C]" });
   };
 

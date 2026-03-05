@@ -1,7 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Mic } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
+import { useSeva } from "@/hooks/useSeva";
+import { notifyCaregiver } from "@/lib/notifyCaregiver";
+import { supabase } from "@/integrations/supabase/client";
+import { posthog } from "@/lib/posthog";
 import {
   Drawer,
   DrawerContent,
@@ -25,8 +29,9 @@ interface ReminderActiveScreenProps {
 }
 
 export const ReminderActiveScreen = ({ reminder, onClose }: ReminderActiveScreenProps) => {
-  const { markReminderAsTaken, rescheduleReminder, medications, skipReminder } = useAppContext();
+  const { markReminderAsTaken, rescheduleReminder, medications, skipReminder, user, userId } = useAppContext();
   const { toast } = useToast();
+  const { speak } = useSeva();
   const [voiceState, setVoiceState] = useState<VoiceState>("listening");
   const [showSnoozeSheet, setShowSnoozeSheet] = useState(false);
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
@@ -38,6 +43,61 @@ export const ReminderActiveScreen = ({ reminder, onClose }: ReminderActiveScreen
     const med = medications.find((m) => m.id === reminder.medicationId);
     return med?.dosage || "";
   }, [reminder, medications]);
+
+  // Auto-speak on mount
+  useEffect(() => {
+    if (!reminder) return;
+    const hour = new Date().getHours();
+    const timeOfDay = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    const dosage = getDosage();
+    const userName = user.name.split(" ")[0];
+    const medName = reminder.medicationName;
+
+    const timer = setTimeout(() => {
+      speak(`Good ${timeOfDay} ${userName}. It is time for your ${medName}, ${dosage}.`);
+      posthog.capture("seva_spoke", { med_name: medName, retry_count: 0, voice_available: true });
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [reminder?.id]);
+
+  // 3-retry loop (5 min intervals)
+  useEffect(() => {
+    if (!reminder || !userId) return;
+    let retries = 0;
+    const reminderId = reminder.id;
+    const medName = reminder.medicationName;
+    const userName = user.name.split(" ")[0];
+
+    const timer = setInterval(async () => {
+      const { data } = await supabase
+        .from("reminders")
+        .select("status")
+        .eq("id", reminderId)
+        .single();
+
+      if (!data || data.status !== "pending") {
+        clearInterval(timer);
+        return;
+      }
+
+      retries++;
+      posthog.capture("seva_retry", { med_name: medName, retry_number: retries });
+
+      if (retries >= 3) {
+        clearInterval(timer);
+        await supabase.from("reminders").update({ status: "missed" }).eq("id", reminderId);
+        await notifyCaregiver(userId, medName);
+        posthog.capture("caregiver_alerted", { med_name: medName, channel: "email" });
+        speak("Your caregiver has been notified.");
+        return;
+      }
+
+      speak(`${userName}, did you take your ${medName}?`);
+    }, 300000); // 5 minutes
+
+    return () => clearInterval(timer);
+  }, [reminder?.id, userId]);
 
   const closeAfterDelay = useCallback((ms: number) => {
     setTimeout(() => {
@@ -52,9 +112,17 @@ export const ReminderActiveScreen = ({ reminder, onClose }: ReminderActiveScreen
 
   const handleTakeIt = () => {
     if (!reminder) return;
+    posthog.capture("took_it_clicked", { med_name: reminder.medicationName, scheduled_time: reminder.scheduledTime });
     markReminderAsTaken(reminder.id);
     setVoiceState("done");
     setFlashColor("bg-[hsl(168,65%,45%)]");
+
+    // Calculate minutes after scheduled
+    const [sh, sm] = reminder.scheduledTime.split(":").map(Number);
+    const now = new Date();
+    const minutesAfter = Math.round((now.getHours() * 60 + now.getMinutes()) - (sh * 60 + sm));
+    posthog.capture("reminder_marked_taken", { med_name: reminder.medicationName, method: "button", minutes_after_scheduled: minutesAfter });
+
     toast({
       description: "Medication marked as taken ✓",
       duration: 3000,
@@ -65,14 +133,18 @@ export const ReminderActiveScreen = ({ reminder, onClose }: ReminderActiveScreen
 
   const handleSkip = () => {
     if (!reminder) return;
+    posthog.capture("skip_clicked", { med_name: reminder.medicationName });
     skipReminder(reminder.id);
+    posthog.capture("reminder_skipped", { med_name: reminder.medicationName });
     setStatusMessage("Noted. Your caregiver will be informed.");
     closeAfterDelay(1500);
   };
 
   const handleSnooze = (minutes: number) => {
     if (!reminder) return;
+    posthog.capture("later_clicked", { med_name: reminder.medicationName });
     const conflicts = rescheduleReminder(reminder.id, minutes);
+    posthog.capture("reminder_rescheduled", { med_name: reminder.medicationName, delay_minutes: minutes });
     if (conflicts.length > 0) {
       setConflictMessage(`⚠️ ${conflicts[0]}`);
       setTimeout(() => {

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { posthog } from "@/lib/posthog";
 import { Clock, Flame, ChevronDown, CalendarDays, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

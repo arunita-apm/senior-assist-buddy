@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { AppState, Medication, Reminder, Appointment, UserProfile, Caregiver } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";

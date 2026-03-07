@@ -274,6 +274,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ── Medication CRUD with persistence ──────────────────────────────────
 
   const addMedication = useCallback(async (med: Medication) => {
+    console.log("addMedication called, userId:", userId);
     // Get userId fresh from session in case state hasn't updated yet
     const { data: { session } } = await supabase.auth.getSession();
     const activeUserId = session?.user?.id || userId;

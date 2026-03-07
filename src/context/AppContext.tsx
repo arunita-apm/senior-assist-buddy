@@ -123,6 +123,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     let uid = session.user.id;
+    setUserId(uid); // Set immediately so CRUD functions have access
     let role: "patient" | "caregiver" = "patient";
     let patientName = "";
 

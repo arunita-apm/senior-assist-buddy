@@ -248,19 +248,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     (action) => {
       setUser((prev) => {
         const next = typeof action === "function" ? action(prev) : action;
-        if (userId) {
-          const dbData: Record<string, any> = {
-            name: next.name,
-            age: next.age,
-            phone: next.phone,
-            caregiver_name: next.caregiver?.name || null,
-            caregiver_phone: next.caregiver?.phone || null,
-            caregiver_email: next.caregiver?.email || null,
-            caregiver_relationship: next.caregiver?.relationship || null,
-            updated_at: new Date().toISOString(),
-          };
-          supabase.from("users").update(dbData).eq("id", userId).then();
-        }
+        // Get fresh session to avoid stale userId closure
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          const activeUserId = session?.user?.id || userId;
+          if (activeUserId) {
+            const dbData: Record<string, any> = {
+              name: next.name,
+              age: next.age,
+              phone: next.phone,
+              caregiver_name: next.caregiver?.name || null,
+              caregiver_phone: next.caregiver?.phone || null,
+              caregiver_email: next.caregiver?.email || null,
+              caregiver_relationship: next.caregiver?.relationship || null,
+              updated_at: new Date().toISOString(),
+            };
+            supabase.from("users").update(dbData).eq("id", activeUserId).then();
+          }
+        });
         return next;
       });
     },
@@ -270,10 +274,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ── Medication CRUD with persistence ──────────────────────────────────
 
   const addMedication = useCallback(async (med: Medication) => {
-    if (!userId) return;
+    // Get userId fresh from session in case state hasn't updated yet
+    const { data: { session } } = await supabase.auth.getSession();
+    const activeUserId = session?.user?.id || userId;
+    if (!activeUserId) return;
     const { data, error } = await supabase.from("medications").insert({
       id: med.id,
-      user_id: userId,
+      user_id: activeUserId,
       name: med.name,
       dosage: med.dosage,
       frequency: med.frequency,
@@ -292,13 +299,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     posthog.capture("medication_saved", { med_name: med.name, times_count: med.times.length, has_gap: !!med.mandatoryGapMinutes });
 
     // Reload medications and generate reminders
-    const { data: medsData } = await supabase.from("medications").select("*").eq("user_id", userId).eq("is_active", true).order("created_at", { ascending: true });
+    const { data: medsData } = await supabase.from("medications").select("*").eq("user_id", activeUserId).eq("is_active", true).order("created_at", { ascending: true });
     if (medsData) setMedications(medsData.map(dbMedToApp));
 
     // Generate today's reminders for the new med
     const today = new Date().toISOString().split("T")[0];
     const reminderRows = med.times.map((t) => ({
-      user_id: userId,
+      user_id: activeUserId,
       medication_id: data.id,
       scheduled_date: today,
       scheduled_time: t,
@@ -307,7 +314,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (reminderRows.length > 0) {
       await supabase.from("reminders").insert(reminderRows);
       // Reload reminders
-      const { data: remData } = await supabase.from("reminders").select("*, medications(name, dosage, color)").eq("user_id", userId).eq("scheduled_date", today).order("scheduled_time", { ascending: true });
+      const { data: remData } = await supabase.from("reminders").select("*, medications(name, dosage, color)").eq("user_id", activeUserId).eq("scheduled_date", today).order("scheduled_time", { ascending: true });
       if (remData) {
         const medMap = new Map((medsData || []).map((m: any) => [m.id, m.name]));
         setReminders(remData.map((r: any) => dbReminderToApp(r, r.medications?.name || medMap.get(r.medication_id) || "Unknown")));

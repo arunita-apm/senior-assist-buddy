@@ -458,7 +458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (userId) {
       const { error } = await supabase.from("reminders").update({ status: "skipped" }).eq("id", reminderId).eq("user_id", userId);
       if (error) {
-        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "reminders", error_message: error.message });
+        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "reminders", error_code: error.code });
       }
       await supabase.from("reminder_logs").insert({ reminder_id: reminderId, user_id: userId, action: "skipped" });
     }

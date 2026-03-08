@@ -69,7 +69,7 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
       }).eq("id", userId);
 
       if (error) {
-        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "profile", error_message: error.message });
+        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "profile", error_code: error.code });
         toast({ title: "Failed to update profile", variant: "destructive" });
         return;
       }

@@ -327,6 +327,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateMedication = useCallback(async (med: Medication) => {
     if (!userId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id || session.user.id !== userId) return;
     const { error } = await supabase.from("medications").update({
       name: med.name,
       dosage: med.dosage,

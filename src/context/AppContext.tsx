@@ -277,8 +277,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     console.log("addMedication called, userId:", userId);
     // Get userId fresh from session in case state hasn't updated yet
     const { data: { session } } = await supabase.auth.getSession();
-    const activeUserId = session?.user?.id || userId;
+    const activeUserId = session?.user?.id;
     if (!activeUserId) return;
+    // Defense-in-depth: block write if acting as caregiver (RLS also enforces this)
+    if (activeUserId !== userId && userId) return;
     const { data, error } = await supabase.from("medications").insert({
       id: med.id,
       user_id: activeUserId,

@@ -35,7 +35,7 @@ const Auth = () => {
       redirect_uri: window.location.origin,
     });
     if (error) {
-      posthog.capture("error_occurred", { error_type: "auth_error", screen: "auth", error_code: error.code });
+      posthog.capture("error_occurred", { error_type: "auth_error", screen: "auth", error_code: (error as any).code || "unknown" });
       toast({
         title: "Sign in failed",
         description: "Could not sign in with Google. Please try again.",

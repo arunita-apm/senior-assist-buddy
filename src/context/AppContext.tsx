@@ -394,6 +394,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addAppointment = useCallback(async (apt: Appointment) => {
     if (!userId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id || session.user.id !== userId) return;
     const { error } = await supabase.from("appointments").insert({
       id: apt.id,
       user_id: userId,

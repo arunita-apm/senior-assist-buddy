@@ -277,8 +277,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     console.log("addMedication called, userId:", userId);
     // Get userId fresh from session in case state hasn't updated yet
     const { data: { session } } = await supabase.auth.getSession();
-    const activeUserId = session?.user?.id || userId;
+    const activeUserId = session?.user?.id;
     if (!activeUserId) return;
+    // Defense-in-depth: block write if acting as caregiver (RLS also enforces this)
+    if (activeUserId !== userId && userId) return;
     const { data, error } = await supabase.from("medications").insert({
       id: med.id,
       user_id: activeUserId,
@@ -325,6 +327,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateMedication = useCallback(async (med: Medication) => {
     if (!userId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id || session.user.id !== userId) return;
     const { error } = await supabase.from("medications").update({
       name: med.name,
       dosage: med.dosage,
@@ -354,6 +358,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteMedication = useCallback(async (medId: string) => {
     if (!userId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id || session.user.id !== userId) return;
     const med = medications.find((m) => m.id === medId);
     const { error } = await supabase.from("medications").update({ is_active: false }).eq("id", medId).eq("user_id", userId);
 
@@ -372,6 +378,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const toggleMedicationActive = useCallback(async (medId: string) => {
     if (!userId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id || session.user.id !== userId) return;
     const med = medications.find((m) => m.id === medId);
     if (!med) return;
     const newActive = !med.isActive;
@@ -386,6 +394,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addAppointment = useCallback(async (apt: Appointment) => {
     if (!userId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id || session.user.id !== userId) return;
     const { error } = await supabase.from("appointments").insert({
       id: apt.id,
       user_id: userId,
@@ -411,6 +421,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteAppointment = useCallback(async (aptId: string) => {
     if (!userId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id || session.user.id !== userId) return;
     const { error } = await supabase.from("appointments").delete().eq("id", aptId).eq("user_id", userId);
 
     if (error) {

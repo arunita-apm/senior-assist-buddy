@@ -378,6 +378,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const toggleMedicationActive = useCallback(async (medId: string) => {
     if (!userId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id || session.user.id !== userId) return;
     const med = medications.find((m) => m.id === medId);
     if (!med) return;
     const newActive = !med.isActive;

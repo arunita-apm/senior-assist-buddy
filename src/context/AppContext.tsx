@@ -358,7 +358,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabase.from("medications").update({ is_active: false }).eq("id", medId).eq("user_id", userId);
 
     if (error) {
-      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "medications", error_message: error.message });
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "medications", error_code: error.code });
       return;
     }
 

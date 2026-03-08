@@ -293,7 +293,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).select().single();
 
     if (error) {
-      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "medications", error_message: error.message });
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "medications", error_code: error.code });
       return;
     }
 
@@ -338,7 +338,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).eq("id", med.id).eq("user_id", userId);
 
     if (error) {
-      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "medications", error_message: error.message });
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "medications", error_code: error.code });
       return;
     }
 
@@ -358,7 +358,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabase.from("medications").update({ is_active: false }).eq("id", medId).eq("user_id", userId);
 
     if (error) {
-      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "medications", error_message: error.message });
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "medications", error_code: error.code });
       return;
     }
 
@@ -398,7 +398,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (error) {
-      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "appointments", error_message: error.message });
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "appointments", error_code: error.code });
       return;
     }
 
@@ -414,7 +414,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabase.from("appointments").delete().eq("id", aptId).eq("user_id", userId);
 
     if (error) {
-      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "appointments", error_message: error.message });
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "appointments", error_code: error.code });
       return;
     }
 
@@ -443,7 +443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (userId) {
       const { error } = await supabase.from("reminders").update({ status: "taken", taken_at: now }).eq("id", reminderId).eq("user_id", userId);
       if (error) {
-        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "reminders", error_message: error.message });
+        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "reminders", error_code: error.code });
       }
       await supabase.from("reminder_logs").insert({ reminder_id: reminderId, user_id: userId, action: "taken" });
     }
@@ -458,7 +458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (userId) {
       const { error } = await supabase.from("reminders").update({ status: "skipped" }).eq("id", reminderId).eq("user_id", userId);
       if (error) {
-        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "reminders", error_message: error.message });
+        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "reminders", error_code: error.code });
       }
       await supabase.from("reminder_logs").insert({ reminder_id: reminderId, user_id: userId, action: "skipped" });
     }

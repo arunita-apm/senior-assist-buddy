@@ -421,6 +421,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteAppointment = useCallback(async (aptId: string) => {
     if (!userId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id || session.user.id !== userId) return;
     const { error } = await supabase.from("appointments").delete().eq("id", aptId).eq("user_id", userId);
 
     if (error) {

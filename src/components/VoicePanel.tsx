@@ -118,12 +118,15 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
     }
   }, [chatMessages]);
 
-  // Reset mode on close
+  // Reset mode on close + stop listening
   useEffect(() => {
     if (!open) {
       setMode("quick");
       setStatusText(null);
       setStatusColor(null);
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      setInterimText("");
     }
   }, [open]);
 

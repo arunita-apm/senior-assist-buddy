@@ -223,7 +223,7 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
 
       {/* Edit Profile Drawer */}
       <Drawer open={editOpen} onOpenChange={setEditOpen}>
-        <DrawerContent className="bg-white rounded-t-2xl">
+        <DrawerContent className="bg-white rounded-t-2xl" style={{ zIndex: 80 }}>
           <DrawerHeader className="text-left">
             <DrawerTitle className="text-xl font-bold text-[#1E293B]">Edit Profile</DrawerTitle>
             <DrawerDescription className="sr-only">Edit your profile details</DrawerDescription>

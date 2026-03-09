@@ -253,12 +253,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               name: next.name,
               age: next.age,
               phone: next.phone,
-              caregiver_name: next.caregiver?.name || null,
-              caregiver_phone: next.caregiver?.phone || null,
-              caregiver_email: next.caregiver?.email || null,
-              caregiver_relationship: next.caregiver?.relationship || null,
               updated_at: new Date().toISOString(),
             };
+            if (next.caregiver) {
+              dbData.caregiver_name = next.caregiver.name;
+              dbData.caregiver_phone = next.caregiver.phone;
+              dbData.caregiver_email = next.caregiver.email || null;
+              dbData.caregiver_relationship = next.caregiver.relationship;
+            }
             supabase.from("users").update(dbData).eq("id", activeUserId).then();
           }
         });
@@ -276,8 +278,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { data: { session } } = await supabase.auth.getSession();
     const activeUserId = session?.user?.id;
     if (!activeUserId) return;
-    // Defense-in-depth: block write if acting as caregiver (RLS also enforces this)
-    if (activeUserId !== userId && userId) return;
     const { data, error } = await supabase.from("medications").insert({
       id: med.id,
       user_id: activeUserId,

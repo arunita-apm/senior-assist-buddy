@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { X, Send, Sparkles, ArrowLeft, Pill, Clock, CalendarPlus, HelpCircle } from "lucide-react";
+import { X, Send, Sparkles, ArrowLeft, Pill, Clock, CalendarPlus, HelpCircle, Mic, MicOff } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import { voiceInputSchema } from "@/lib/validation";
@@ -7,6 +7,21 @@ import { posthog } from "@/lib/posthog";
 import { streamSevaChat, type ChatMessage } from "@/lib/sevaChat";
 import ReactMarkdown from "react-markdown";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+// Web Speech API types
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
 
 interface VoicePanelProps {
   open: boolean;
@@ -29,6 +44,70 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Speech-to-text state
+  const [isListening, setIsListening] = useState(false);
+  const [interimText, setInterimText] = useState("");
+  const recognitionRef = useRef<any>(null);
+
+  const speechSupported = typeof window !== "undefined" && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  const startListening = useCallback(() => {
+    if (!speechSupported) {
+      toast({ description: "Speech recognition is not supported in this browser", variant: "destructive" });
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-IN";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = "";
+      let final = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          final += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      if (final) {
+        setTextInput((prev) => (prev + " " + final).trim());
+        setInterimText("");
+      } else {
+        setInterimText(interim);
+      }
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+      setInterimText("");
+      if (event.error !== "aborted" && event.error !== "no-speech") {
+        toast({ description: `Microphone error: ${event.error}`, variant: "destructive" });
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      setInterimText("");
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+    posthog.capture("seva_voice_input_started");
+  }, [speechSupported, toast]);
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+    setInterimText("");
+  }, []);
+
   const today = new Date().toISOString().split("T")[0];
   const pendingReminder = reminders.find((r) => r.date === today && r.status === "pending");
 
@@ -39,12 +118,15 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
     }
   }, [chatMessages]);
 
-  // Reset mode on close
+  // Reset mode on close + stop listening
   useEffect(() => {
     if (!open) {
       setMode("quick");
       setStatusText(null);
       setStatusColor(null);
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      setInterimText("");
     }
   }, [open]);
 
@@ -304,22 +386,46 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
           </div>
         )}
 
+        {/* Interim speech text */}
+        {isListening && interimText && (
+          <div className="mx-5 mb-2">
+            <p className="text-xs text-muted-foreground italic animate-pulse">🎤 {interimText}</p>
+          </div>
+        )}
+
         {/* Text input — always visible */}
         <div className="mx-5 mb-6 flex gap-2">
           <input
             type="text"
-            placeholder={mode === "chat" ? "Ask Seva anything..." : "Or type here..."}
+            placeholder={isListening ? "Listening..." : mode === "chat" ? "Ask Seva anything..." : "Or type here..."}
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleTextSend()}
             className="flex-1 h-12 rounded-lg bg-secondary border border-border px-3 text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
+          {speechSupported && (
+            <button
+              onClick={isListening ? stopListening : startListening}
+              className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-95 ${
+                isListening
+                  ? "bg-destructive animate-pulse"
+                  : "bg-secondary border border-border hover:bg-muted"
+              }`}
+              aria-label={isListening ? "Stop listening" : "Start voice input"}
+            >
+              {isListening ? (
+                <MicOff className="w-5 h-5 text-destructive-foreground" />
+              ) : (
+                <Mic className="w-5 h-5 text-foreground" />
+              )}
+            </button>
+          )}
           <button
             onClick={() => {
               posthog.capture("seva_text_sent", { command: textInput, mode });
               handleTextSend();
             }}
-            disabled={isStreaming}
+            disabled={isStreaming || !textInput.trim()}
             className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center shrink-0 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
           >
             <Send className="w-5 h-5 text-primary-foreground" />

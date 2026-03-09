@@ -383,22 +383,46 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
           </div>
         )}
 
+        {/* Interim speech text */}
+        {isListening && interimText && (
+          <div className="mx-5 mb-2">
+            <p className="text-xs text-muted-foreground italic animate-pulse">🎤 {interimText}</p>
+          </div>
+        )}
+
         {/* Text input — always visible */}
         <div className="mx-5 mb-6 flex gap-2">
           <input
             type="text"
-            placeholder={mode === "chat" ? "Ask Seva anything..." : "Or type here..."}
+            placeholder={isListening ? "Listening..." : mode === "chat" ? "Ask Seva anything..." : "Or type here..."}
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleTextSend()}
             className="flex-1 h-12 rounded-lg bg-secondary border border-border px-3 text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
+          {speechSupported && (
+            <button
+              onClick={isListening ? stopListening : startListening}
+              className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-95 ${
+                isListening
+                  ? "bg-destructive animate-pulse"
+                  : "bg-secondary border border-border hover:bg-muted"
+              }`}
+              aria-label={isListening ? "Stop listening" : "Start voice input"}
+            >
+              {isListening ? (
+                <MicOff className="w-5 h-5 text-destructive-foreground" />
+              ) : (
+                <Mic className="w-5 h-5 text-foreground" />
+              )}
+            </button>
+          )}
           <button
             onClick={() => {
               posthog.capture("seva_text_sent", { command: textInput, mode });
               handleTextSend();
             }}
-            disabled={isStreaming}
+            disabled={isStreaming || !textInput.trim()}
             className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center shrink-0 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
           >
             <Send className="w-5 h-5 text-primary-foreground" />

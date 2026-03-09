@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { X, Send, Sparkles, ArrowLeft, Pill, Clock, CalendarPlus, HelpCircle } from "lucide-react";
+import { X, Send, Sparkles, ArrowLeft, Pill, Clock, CalendarPlus, HelpCircle, Mic, MicOff } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import { voiceInputSchema } from "@/lib/validation";
@@ -7,6 +7,21 @@ import { posthog } from "@/lib/posthog";
 import { streamSevaChat, type ChatMessage } from "@/lib/sevaChat";
 import ReactMarkdown from "react-markdown";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+// Web Speech API types
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
 
 interface VoicePanelProps {
   open: boolean;

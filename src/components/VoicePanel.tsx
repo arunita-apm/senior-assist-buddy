@@ -44,6 +44,70 @@ export const VoicePanel = ({ open, onClose, onNavigate }: VoicePanelProps) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Speech-to-text state
+  const [isListening, setIsListening] = useState(false);
+  const [interimText, setInterimText] = useState("");
+  const recognitionRef = useRef<any>(null);
+
+  const speechSupported = typeof window !== "undefined" && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  const startListening = useCallback(() => {
+    if (!speechSupported) {
+      toast({ description: "Speech recognition is not supported in this browser", variant: "destructive" });
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-IN";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = "";
+      let final = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          final += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      if (final) {
+        setTextInput((prev) => (prev + " " + final).trim());
+        setInterimText("");
+      } else {
+        setInterimText(interim);
+      }
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+      setInterimText("");
+      if (event.error !== "aborted" && event.error !== "no-speech") {
+        toast({ description: `Microphone error: ${event.error}`, variant: "destructive" });
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      setInterimText("");
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+    posthog.capture("seva_voice_input_started");
+  }, [speechSupported, toast]);
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+    setInterimText("");
+  }, []);
+
   const today = new Date().toISOString().split("T")[0];
   const pendingReminder = reminders.find((r) => r.date === today && r.status === "pending");
 

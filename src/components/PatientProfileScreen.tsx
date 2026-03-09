@@ -83,6 +83,7 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
     }));
     setEditOpen(false);
     toast({ description: "Profile updated ✓", duration: 3000, className: "bg-[#E6F7F3] border-[#28BF9C] text-[#28BF9C]" });
+    setTimeout(() => onBack(), 300);
   };
 
   const handleSignOut = async () => {
@@ -104,7 +105,7 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-background overflow-y-auto">
+    <div className="fixed inset-0 z-[70] bg-background overflow-y-auto" style={{ isolation: 'isolate' }}>
       {/* Header */}
       <div className="flex items-center px-4 py-4">
         <button onClick={onBack} className="p-2 -ml-2 text-foreground min-w-[48px] min-h-[48px] flex items-center justify-center">
@@ -189,30 +190,13 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
         </Card>
 
         {/* Sign Out */}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <button
-              className="w-full h-12 rounded-xl border border-[#EF4444] text-[#EF4444] font-bold text-base flex items-center justify-center gap-2 mt-6 hover:bg-red-50 transition-colors"
-            >
-              <LogOut className="w-5 h-5" />
-              Sign Out
-            </button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Sign out?</AlertDialogTitle>
-              <AlertDialogDescription>
-                You'll need to sign in again to access your medications and reminders.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleSignOut} className="bg-red-500 hover:bg-red-600">
-                Sign Out
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <button
+          onClick={handleSignOut}
+          className="w-full h-12 rounded-xl border border-[#EF4444] text-[#EF4444] font-bold text-base flex items-center justify-center gap-2 mt-6 hover:bg-red-50 transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          Sign Out
+        </button>
 
         {/* Footer */}
         <div className="text-center pt-4 pb-2 space-y-1">

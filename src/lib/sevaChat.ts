@@ -1,6 +1,9 @@
+import { supabase } from "@/integrations/supabase/client";
+
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seva-chat`;
+const MAX_MESSAGES = 20;
+const MAX_MESSAGE_LENGTH = 2000;
 
 export async function streamSevaChat({
   messages,
@@ -13,13 +16,34 @@ export async function streamSevaChat({
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
+  // Client-side validation (mirrors server)
+  if (messages.length > MAX_MESSAGES) {
+    onError("Conversation too long. Please start a new chat.");
+    return;
+  }
+  for (const msg of messages) {
+    if (msg.content.length > MAX_MESSAGE_LENGTH) {
+      onError("Message too long (max 2000 characters).");
+      return;
+    }
+  }
+
+  // Get the authenticated session token
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    onError("Please sign in to use Seva AI.");
+    return;
+  }
+
+  const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seva-chat`;
+
   let resp: Response;
   try {
     resp = await fetch(CHAT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ messages }),
     });

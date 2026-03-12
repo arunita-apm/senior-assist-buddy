@@ -10,8 +10,12 @@ import type { Session } from "@supabase/supabase-js";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import { setupDeepLinkListener } from "./lib/handleDeepLink";
 
 const queryClient = new QueryClient();
+
+// Initialize deep link listener for native OAuth callback
+setupDeepLinkListener();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null | undefined>(undefined);

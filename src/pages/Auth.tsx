@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
@@ -33,16 +34,46 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     posthog.capture("signup_button_clicked", { method: "google" });
     setLoading(true);
-    const { error } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (error) {
-      posthog.capture("error_occurred", { error_type: "auth_error", screen: "auth", error_code: (error as any).code || "unknown" });
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // Native app: use Supabase directly with skipBrowserRedirect
+        // so we can handle the custom URL scheme callback
+        const redirectUrl = "com.guardian.seniorapp://login-callback";
+
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true,
+          },
+        });
+
+        if (error) throw error;
+
+        if (data?.url) {
+          // Open the OAuth URL in the system browser
+          window.open(data.url, "_blank");
+        }
+      } else {
+        // Web: use Lovable's managed OAuth flow
+        const { error } = await lovable.auth.signInWithOAuth("google", {
+          redirect_uri: window.location.origin,
+        });
+        if (error) throw error;
+      }
+    } catch (error: any) {
+      posthog.capture("error_occurred", {
+        error_type: "auth_error",
+        screen: "auth",
+        error_code: error?.code || "unknown",
+      });
       toast({
         title: "Sign in failed",
         description: "Could not sign in with Google. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setLoading(false);
     }
   };

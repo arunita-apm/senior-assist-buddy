@@ -22,6 +22,7 @@ const Auth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         posthog.capture("user_signed_up", { method: "google", is_new_user: _event === "SIGNED_IN" });
+        registerPushNotifications(session.user.id);
         navigate("/", { replace: true });
       }
     });

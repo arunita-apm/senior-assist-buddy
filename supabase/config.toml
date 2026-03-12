@@ -1,1 +1,4 @@
 project_id = "kulsxowgwvstdkdwfkxg"
+
+[functions.send-medication-reminder]
+verify_jwt = false

@@ -5,6 +5,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { posthog } from "@/lib/posthog";
+import { registerPushNotifications } from "@/lib/registerPushNotifications";
 
 const Auth = () => {
   const navigate = useNavigate();

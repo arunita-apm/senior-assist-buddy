@@ -37,9 +37,9 @@ const Auth = () => {
 
     try {
       if (Capacitor.isNativePlatform()) {
-        // Native app: use Supabase directly with skipBrowserRedirect
-        // so we can handle the custom URL scheme callback
-        const redirectUrl = "com.guardian.seniorapp://login-callback";
+        // Native app: redirect to the published web URL after OAuth
+        // The web app will have the session tokens in the URL hash
+        const redirectUrl = "https://senior-assist-buddy.lovable.app";
 
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: "google",
@@ -52,7 +52,6 @@ const Auth = () => {
         if (error) throw error;
 
         if (data?.url) {
-          // Open the OAuth URL in the system browser
           window.open(data.url, "_blank");
         }
       } else {

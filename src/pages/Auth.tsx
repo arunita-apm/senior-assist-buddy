@@ -36,31 +36,10 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (Capacitor.isNativePlatform()) {
-        // Native app: redirect to the published web URL after OAuth
-        // The web app will have the session tokens in the URL hash
-        const redirectUrl = "https://senior-assist-buddy.lovable.app";
-
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo: redirectUrl,
-            skipBrowserRedirect: true,
-          },
-        });
-
-        if (error) throw error;
-
-        if (data?.url) {
-          window.open(data.url, "_blank");
-        }
-      } else {
-        // Web: use Lovable's managed OAuth flow
-        const { error } = await lovable.auth.signInWithOAuth("google", {
-          redirect_uri: window.location.origin,
-        });
-        if (error) throw error;
-      }
+      const { error } = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (error) throw error;
     } catch (error: any) {
       posthog.capture("error_occurred", {
         error_type: "auth_error",

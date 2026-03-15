@@ -1,5 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
-
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const MAX_MESSAGES = 20;
@@ -28,14 +26,14 @@ export async function streamSevaChat({
     }
   }
 
-  // Get the authenticated session token
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) {
+  const userId = localStorage.getItem("userId");
+  if (!userId) {
     onError("Please sign in to use Seva AI.");
     return;
   }
 
   const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seva-chat`;
+  const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
   let resp: Response;
   try {
@@ -43,7 +41,8 @@ export async function streamSevaChat({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
+        Authorization: `Bearer ${ANON_KEY}`,
+        apikey: ANON_KEY,
       },
       body: JSON.stringify({ messages }),
     });

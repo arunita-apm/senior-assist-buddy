@@ -257,9 +257,11 @@ export type Database = {
           caregiver_phone: string | null
           caregiver_relationship: string | null
           created_at: string | null
+          email: string | null
           fcm_token: string | null
           id: string
           name: string | null
+          password: string | null
           phone: string | null
           role: string | null
           streak: number | null
@@ -273,9 +275,11 @@ export type Database = {
           caregiver_phone?: string | null
           caregiver_relationship?: string | null
           created_at?: string | null
+          email?: string | null
           fcm_token?: string | null
           id: string
           name?: string | null
+          password?: string | null
           phone?: string | null
           role?: string | null
           streak?: number | null
@@ -289,9 +293,11 @@ export type Database = {
           caregiver_phone?: string | null
           caregiver_relationship?: string | null
           created_at?: string | null
+          email?: string | null
           fcm_token?: string | null
           id?: string
           name?: string | null
+          password?: string | null
           phone?: string | null
           role?: string | null
           streak?: number | null

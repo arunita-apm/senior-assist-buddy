@@ -6,9 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { posthog } from "@/lib/posthog";
-import { registerPushNotifications } from "@/lib/registerPushNotifications";
-
-
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -16,50 +13,41 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
 
   useEffect(() => {
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session) navigate("/", { replace: true });
-    };
-    checkSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        const method = "email";
-        posthog.capture("user_signed_up", { method, is_new_user: _event === "SIGNED_IN" });
-        registerPushNotifications(session.user.id);
-        navigate("/", { replace: true });
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    const savedUserId = localStorage.getItem("userId");
+    if (savedUserId) navigate("/", { replace: true });
   }, [navigate]);
 
-
-  const handleEmailAuth = async () => {
+  const handleSignIn = async () => {
     if (!email || !password) {
       toast({ title: "Missing fields", description: "Please enter email and password.", variant: "destructive" });
       return;
     }
 
     setLoading(true);
-    posthog.capture("signup_button_clicked", { method: "email", action: isSignUp ? "sign_up" : "sign_in" });
+    posthog.capture("signin_button_clicked", { method: "custom_email" });
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        toast({ title: "Account created", description: "Please check your email to verify your account." });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email.trim().toLowerCase())
+        .eq("password", password)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) {
+        toast({ title: "Invalid email or password", description: "Please check your credentials and try again.", variant: "destructive" });
+        return;
       }
+
+      // Store user ID in localStorage
+      localStorage.setItem("userId", data.id);
+      posthog.identify(data.id, { name: data.name, email: data.email });
+      posthog.capture("user_signed_in", { method: "custom_email" });
+      navigate("/", { replace: true });
     } catch (error: any) {
       posthog.capture("error_occurred", {
         error_type: "auth_error",
@@ -67,7 +55,7 @@ const Auth = () => {
         error_code: error?.code || "unknown",
       });
       toast({
-        title: isSignUp ? "Sign up failed" : "Sign in failed",
+        title: "Sign in failed",
         description: error?.message || "Please try again.",
         variant: "destructive",
       });
@@ -92,23 +80,19 @@ const Auth = () => {
           <p className="text-sm text-muted-foreground text-center">Sign in to manage your medications and reminders</p>
 
           <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="email" className="text-foreground">Email</Label>
-                <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoCapitalize="none" autoComplete="email" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="password" className="text-foreground">Password</Label>
-                <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={isSignUp ? "new-password" : "current-password"} />
-              </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="email" className="text-foreground">Email</Label>
+              <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoCapitalize="none" autoComplete="email" />
             </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="password" className="text-foreground">Password</Label>
+              <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+            </div>
+          </div>
 
-            <Button onClick={handleEmailAuth} disabled={loading} className="w-full h-12 rounded-xl text-base font-semibold">
-              {loading ? "Please wait…" : isSignUp ? "Sign Up" : "Sign In"}
-            </Button>
-
-            <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="text-sm text-muted-foreground hover:text-foreground text-center transition-colors">
-              {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
-            </button>
+          <Button onClick={handleSignIn} disabled={loading} className="w-full h-12 rounded-xl text-base font-semibold">
+            {loading ? "Please wait…" : "Sign In"}
+          </Button>
         </div>
 
         <p className="text-xs text-muted-foreground text-center italic">Built with care for seniors</p>

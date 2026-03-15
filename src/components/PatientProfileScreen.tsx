@@ -12,17 +12,6 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from "@/components/ui/drawer";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { useAppContext } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import { profileSchema, validateForm } from "@/lib/validation";
@@ -86,15 +75,11 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
     setTimeout(() => onBack(), 300);
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     posthog.capture("signout_clicked");
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast({ title: "Error signing out", variant: "destructive" });
-    } else {
-      posthog.reset();
-      navigate("/auth", { replace: true });
-    }
+    localStorage.removeItem("userId");
+    posthog.reset();
+    navigate("/auth", { replace: true });
   };
 
   const openEdit = () => {

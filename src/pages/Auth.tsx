@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { posthog } from "@/lib/posthog";
 import { registerPushNotifications } from "@/lib/registerPushNotifications";
 
-const isNative = true;
+
 
 const Auth = () => {
   const navigate = useNavigate();

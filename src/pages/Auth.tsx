@@ -43,30 +43,6 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleGoogleSignIn = async () => {
-    posthog.capture("signup_button_clicked", { method: "google" });
-    setLoading(true);
-
-    try {
-      const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      posthog.capture("error_occurred", {
-        error_type: "auth_error",
-        screen: "auth",
-        error_code: error?.code || "unknown",
-      });
-      toast({
-        title: "Sign in failed",
-        description: "Could not sign in with Google. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEmailAuth = async () => {
     if (!email || !password) {

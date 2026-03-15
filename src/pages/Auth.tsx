@@ -31,7 +31,7 @@ const Auth = () => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        const method = isNative ? "email" : "google";
+        const method = "email";
         posthog.capture("user_signed_up", { method, is_new_user: _event === "SIGNED_IN" });
         registerPushNotifications(session.user.id);
         navigate("/", { replace: true });

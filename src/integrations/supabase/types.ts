@@ -277,7 +277,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           fcm_token?: string | null
-          id: string
+          id?: string
           name?: string | null
           password?: string | null
           phone?: string | null

@@ -193,10 +193,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUserRole(role);
     setViewingPatientName(patientName);
 
-    // Identify user in PostHog
-    posthog.identify(authUser.id, {
+    // Identify user in PostHog by phone
+    posthog.identify(fullPhone || authUser.id, {
       name: userData.name,
-      phone: userPhone,
+      phone: fullPhone,
       role,
       device: navigator.userAgent.includes("Android") ? "Android" : "Other",
     });

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { posthog } from "@/lib/posthog";
+import { supabase } from "@/integrations/supabase/client";
 import { Users, Phone, Mail } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

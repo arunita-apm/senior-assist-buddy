@@ -528,6 +528,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const todayStats = useCallback(() => getTodayStatsUtil(reminders), [reminders]);
   const getStreak = useCallback(() => streak, [streak]);
 
+  // ── Select patient (for caregiver with multiple patients) ──────────────
+
+  const selectPatient = useCallback(async (patientId: string) => {
+    setLoading(true);
+    const patient = caregiverPatients.find((p) => p.patient_id === patientId);
+    setUserId(patientId);
+    setViewingPatientName(patient?.patient_name || "Patient");
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const [userData, medsRes, remindersRes, aptsRes] = await Promise.all([
+      supabase.from("users").select("*").eq("id", patientId).maybeSingle(),
+      supabase.from("medications").select("*").eq("user_id", patientId).eq("is_active", true).order("created_at", { ascending: true }),
+      supabase.from("reminders").select("*, medications(name, dosage, color)").eq("user_id", patientId).eq("scheduled_date", today).order("scheduled_time", { ascending: true }),
+      supabase.from("appointments").select("*").eq("user_id", patientId).gte("appointment_datetime", new Date().toISOString()).order("appointment_datetime", { ascending: true }),
+    ]);
+
+    if (userData.data) setUser(dbUserToApp(userData.data));
+    const meds = (medsRes.data || []).map(dbMedToApp);
+    setMedications(meds);
+    const medNameMap = new Map(meds.map((m) => [m.id, m.name]));
+    setReminders((remindersRes.data || []).map((r: any) => dbReminderToApp(r, r.medications?.name || medNameMap.get(r.medication_id) || "Unknown")));
+    setAppointments((aptsRes.data || []).map(dbAppointmentToApp));
+    setStreak(userData.data?.streak || 0);
+    setLoading(false);
+  }, [caregiverPatients]);
+
   return (
     <AppContext.Provider
       value={{
@@ -539,6 +566,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userId,
         userRole,
         viewingPatientName,
+        caregiverPatients,
+        selectPatient,
         setUser: setUserAndPersist,
         setMedications,
         setReminders,

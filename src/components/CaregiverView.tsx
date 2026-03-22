@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { posthog } from "@/lib/posthog";
+import { supabase } from "@/integrations/supabase/client";
 import { Users, Phone, Mail } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ import { caregiverSchema, validateForm } from "@/lib/validation";
 const RELATIONSHIPS = ["Son", "Daughter", "Spouse", "Sibling", "Friend", "Other"];
 
 export const CaregiverView = () => {
-  const { user, setUser, userRole } = useAppContext();
+  const { user, setUser, userRole, userId } = useAppContext();
   const isCaregiver = userRole === "caregiver";
   const { toast } = useToast();
   const caregiver = user.caregiver;
@@ -83,6 +84,17 @@ export const CaregiverView = () => {
       note: cgNote.trim() || undefined,
     };
     setUser((prev) => ({ ...prev, caregiver: newCg }));
+
+    // Auto-create caregiver_links row
+    if (userId && cgPhone.trim()) {
+      const cleanPhone = cgPhone.trim().replace(/^(\+91)?/, "");
+      supabase.from("caregiver_links").upsert({
+        caregiver_phone: cleanPhone,
+        patient_id: userId,
+        patient_name: user.name,
+      }, { onConflict: "caregiver_phone,patient_id" }).then();
+    }
+
     setDrawerOpen(false);
     posthog.capture("caregiver_saved", { has_email: !!cgEmail.trim() });
     toast({ description: isEditing ? "Caregiver updated ✓" : "Caregiver added ✓", duration: 3000, className: "bg-[#E6F7F3] border-[#28BF9C] text-[#28BF9C]" });

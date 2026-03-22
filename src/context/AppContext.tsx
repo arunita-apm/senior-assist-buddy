@@ -78,11 +78,18 @@ const defaultUser: UserProfile = { name: "User", age: 0, phone: "", role: "senio
 
 // ── Context interface ──────────────────────────────────────────────────────
 
+interface CaregiverPatientLink {
+  patient_id: string;
+  patient_name: string | null;
+}
+
 interface AppContextValue extends AppState {
   loading: boolean;
   userId: string | null;
   userRole: "patient" | "caregiver";
   viewingPatientName: string;
+  caregiverPatients: CaregiverPatientLink[];
+  selectPatient: (patientId: string) => Promise<void>;
   setMedications: React.Dispatch<React.SetStateAction<Medication[]>>;
   setReminders: React.Dispatch<React.SetStateAction<Reminder[]>>;
   setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
@@ -113,6 +120,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [streak, setStreak] = useState(0);
   const [userRole, setUserRole] = useState<"patient" | "caregiver">("patient");
   const [viewingPatientName, setViewingPatientName] = useState("");
+  const [caregiverPatients, setCaregiverPatients] = useState<CaregiverPatientLink[]>([]);
 
   // ── Load all data from DB using Supabase Auth session ────────────────────
 
@@ -141,21 +149,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    // Check if the user's phone matches any patient's caregiver_phone
-    const userPhone = authUser.phone || userData.phone;
-    if (userPhone) {
-      const { data: patientData } = await supabase
-        .from("users")
-        .select("id, name")
-        .eq("caregiver_phone", userPhone)
-        .neq("id", uid)
-        .limit(1)
-        .maybeSingle();
+    // Check caregiver_links table for this phone
+    const userPhone = authUser.phone || userData.phone || userData.phone_number;
+    const cleanPhone = userPhone?.replace(/^\+91/, "") || "";
+    const fullPhone = userPhone || "";
 
-      if (patientData) {
-        role = "caregiver";
-        uid = patientData.id;
-        patientName = patientData.name || "Patient";
+    if (cleanPhone || fullPhone) {
+      const { data: links } = await supabase
+        .from("caregiver_links")
+        .select("patient_id, patient_name")
+        .or(`caregiver_phone.eq.${cleanPhone},caregiver_phone.eq.${fullPhone},caregiver_phone.eq.+91${cleanPhone}`);
+
+      if (links && links.length > 0) {
+        // Filter out self-links
+        const otherPatients = links.filter((l: any) => l.patient_id !== authUser.id);
+        if (otherPatients.length > 0) {
+          setCaregiverPatients(otherPatients);
+          if (otherPatients.length === 1) {
+            role = "caregiver";
+            uid = otherPatients[0].patient_id;
+            patientName = otherPatients[0].patient_name || "Patient";
+          } else {
+            // Multiple patients — show selector (don't load patient data yet)
+            role = "caregiver";
+            setUserRole(role);
+            setUserId(authUser.id);
+            setUser(dbUserToApp(userData));
+
+            posthog.identify(fullPhone || authUser.id, {
+              name: userData.name,
+              phone: fullPhone,
+              role,
+            });
+
+            setLoading(false);
+            return;
+          }
+        }
       }
     }
 
@@ -163,10 +193,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUserRole(role);
     setViewingPatientName(patientName);
 
-    // Identify user in PostHog
-    posthog.identify(authUser.id, {
+    // Identify user in PostHog by phone
+    posthog.identify(fullPhone || authUser.id, {
       name: userData.name,
-      phone: userPhone,
+      phone: fullPhone,
       role,
       device: navigator.userAgent.includes("Android") ? "Android" : "Other",
     });
@@ -498,6 +528,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const todayStats = useCallback(() => getTodayStatsUtil(reminders), [reminders]);
   const getStreak = useCallback(() => streak, [streak]);
 
+  // ── Select patient (for caregiver with multiple patients) ──────────────
+
+  const selectPatient = useCallback(async (patientId: string) => {
+    setLoading(true);
+    const patient = caregiverPatients.find((p) => p.patient_id === patientId);
+    setUserId(patientId);
+    setViewingPatientName(patient?.patient_name || "Patient");
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const [userData, medsRes, remindersRes, aptsRes] = await Promise.all([
+      supabase.from("users").select("*").eq("id", patientId).maybeSingle(),
+      supabase.from("medications").select("*").eq("user_id", patientId).eq("is_active", true).order("created_at", { ascending: true }),
+      supabase.from("reminders").select("*, medications(name, dosage, color)").eq("user_id", patientId).eq("scheduled_date", today).order("scheduled_time", { ascending: true }),
+      supabase.from("appointments").select("*").eq("user_id", patientId).gte("appointment_datetime", new Date().toISOString()).order("appointment_datetime", { ascending: true }),
+    ]);
+
+    if (userData.data) setUser(dbUserToApp(userData.data));
+    const meds = (medsRes.data || []).map(dbMedToApp);
+    setMedications(meds);
+    const medNameMap = new Map(meds.map((m) => [m.id, m.name]));
+    setReminders((remindersRes.data || []).map((r: any) => dbReminderToApp(r, r.medications?.name || medNameMap.get(r.medication_id) || "Unknown")));
+    setAppointments((aptsRes.data || []).map(dbAppointmentToApp));
+    setStreak(userData.data?.streak || 0);
+    setLoading(false);
+  }, [caregiverPatients]);
+
   return (
     <AppContext.Provider
       value={{
@@ -509,6 +566,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userId,
         userRole,
         viewingPatientName,
+        caregiverPatients,
+        selectPatient,
         setUser: setUserAndPersist,
         setMedications,
         setReminders,

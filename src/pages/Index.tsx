@@ -7,6 +7,7 @@ import { CaregiverView } from "@/components/CaregiverView";
 import { ReminderActiveScreen } from "@/components/ReminderActiveScreen";
 import { VoicePanel } from "@/components/VoicePanel";
 import { PatientProfileScreen } from "@/components/PatientProfileScreen";
+import { PatientSelector } from "@/components/PatientSelector";
 import { useAppContext } from "@/context/AppContext";
 import { posthog } from "@/lib/posthog";
 import type { Reminder } from "@/lib/types";
@@ -25,8 +26,13 @@ const Index = () => {
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(null);
   const [voicePanelOpen, setVoicePanelOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const { userRole, viewingPatientName } = useAppContext();
+  const { userRole, viewingPatientName, caregiverPatients, selectPatient } = useAppContext();
   const isCaregiver = userRole === "caregiver";
+
+  // Show patient selector if caregiver with multiple patients and none selected yet
+  if (isCaregiver && caregiverPatients.length > 1 && !viewingPatientName) {
+    return <PatientSelector patients={caregiverPatients} onSelect={selectPatient} />;
+  }
 
   if (showProfile) {
     return <PatientProfileScreen onBack={() => setShowProfile(false)} />;

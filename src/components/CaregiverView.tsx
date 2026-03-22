@@ -28,7 +28,7 @@ import { caregiverSchema, validateForm } from "@/lib/validation";
 const RELATIONSHIPS = ["Son", "Daughter", "Spouse", "Sibling", "Friend", "Other"];
 
 export const CaregiverView = () => {
-  const { user, setUser, userRole } = useAppContext();
+  const { user, setUser, userRole, userId } = useAppContext();
   const isCaregiver = userRole === "caregiver";
   const { toast } = useToast();
   const caregiver = user.caregiver;

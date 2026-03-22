@@ -239,7 +239,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     (action) => {
       setUser((prev) => {
         const next = typeof action === "function" ? action(prev) : action;
-        const activeUserId = localStorage.getItem("userId") || userId;
+        const activeUserId = userId;
         if (activeUserId) {
           const dbData: Record<string, any> = {
             name: next.name,

@@ -264,7 +264,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ── Medication CRUD with persistence ──────────────────────────────────
 
   const addMedication = useCallback(async (med: Medication) => {
-    const activeUserId = localStorage.getItem("userId") || userId;
+    const activeUserId = userId;
     if (!activeUserId) return;
 
     const { data, error } = await supabase.from("medications").insert({

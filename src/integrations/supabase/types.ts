@@ -64,6 +64,38 @@ export type Database = {
           },
         ]
       }
+      caregiver_links: {
+        Row: {
+          caregiver_phone: string
+          created_at: string | null
+          id: string
+          patient_id: string
+          patient_name: string | null
+        }
+        Insert: {
+          caregiver_phone: string
+          created_at?: string | null
+          id?: string
+          patient_id: string
+          patient_name?: string | null
+        }
+        Update: {
+          caregiver_phone?: string
+          created_at?: string | null
+          id?: string
+          patient_id?: string
+          patient_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caregiver_links_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       caregiver_notifications: {
         Row: {
           channel: string
@@ -263,6 +295,7 @@ export type Database = {
           name: string | null
           password: string | null
           phone: string | null
+          phone_number: string | null
           role: string | null
           streak: number | null
           updated_at: string | null
@@ -281,6 +314,7 @@ export type Database = {
           name?: string | null
           password?: string | null
           phone?: string | null
+          phone_number?: string | null
           role?: string | null
           streak?: number | null
           updated_at?: string | null
@@ -299,6 +333,7 @@ export type Database = {
           name?: string | null
           password?: string | null
           phone?: string | null
+          phone_number?: string | null
           role?: string | null
           streak?: number | null
           updated_at?: string | null

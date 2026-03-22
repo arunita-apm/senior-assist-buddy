@@ -78,11 +78,18 @@ const defaultUser: UserProfile = { name: "User", age: 0, phone: "", role: "senio
 
 // ── Context interface ──────────────────────────────────────────────────────
 
+interface CaregiverPatientLink {
+  patient_id: string;
+  patient_name: string | null;
+}
+
 interface AppContextValue extends AppState {
   loading: boolean;
   userId: string | null;
   userRole: "patient" | "caregiver";
   viewingPatientName: string;
+  caregiverPatients: CaregiverPatientLink[];
+  selectPatient: (patientId: string) => Promise<void>;
   setMedications: React.Dispatch<React.SetStateAction<Medication[]>>;
   setReminders: React.Dispatch<React.SetStateAction<Reminder[]>>;
   setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
@@ -113,6 +120,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [streak, setStreak] = useState(0);
   const [userRole, setUserRole] = useState<"patient" | "caregiver">("patient");
   const [viewingPatientName, setViewingPatientName] = useState("");
+  const [caregiverPatients, setCaregiverPatients] = useState<CaregiverPatientLink[]>([]);
 
   // ── Load all data from DB using Supabase Auth session ────────────────────
 

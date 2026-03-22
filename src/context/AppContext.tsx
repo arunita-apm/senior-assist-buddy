@@ -149,21 +149,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    // Check if the user's phone matches any patient's caregiver_phone
-    const userPhone = authUser.phone || userData.phone;
-    if (userPhone) {
-      const { data: patientData } = await supabase
-        .from("users")
-        .select("id, name")
-        .eq("caregiver_phone", userPhone)
-        .neq("id", uid)
-        .limit(1)
-        .maybeSingle();
+    // Check caregiver_links table for this phone
+    const userPhone = authUser.phone || userData.phone || userData.phone_number;
+    const cleanPhone = userPhone?.replace(/^\+91/, "") || "";
+    const fullPhone = userPhone || "";
 
-      if (patientData) {
-        role = "caregiver";
-        uid = patientData.id;
-        patientName = patientData.name || "Patient";
+    if (cleanPhone || fullPhone) {
+      const { data: links } = await supabase
+        .from("caregiver_links")
+        .select("patient_id, patient_name")
+        .or(`caregiver_phone.eq.${cleanPhone},caregiver_phone.eq.${fullPhone},caregiver_phone.eq.+91${cleanPhone}`);
+
+      if (links && links.length > 0) {
+        // Filter out self-links
+        const otherPatients = links.filter((l: any) => l.patient_id !== authUser.id);
+        if (otherPatients.length > 0) {
+          setCaregiverPatients(otherPatients);
+          if (otherPatients.length === 1) {
+            role = "caregiver";
+            uid = otherPatients[0].patient_id;
+            patientName = otherPatients[0].patient_name || "Patient";
+          } else {
+            // Multiple patients — show selector (don't load patient data yet)
+            role = "caregiver";
+            setUserRole(role);
+            setUserId(authUser.id);
+            setUser(dbUserToApp(userData));
+
+            posthog.identify(fullPhone || authUser.id, {
+              name: userData.name,
+              phone: fullPhone,
+              role,
+            });
+
+            setLoading(false);
+            return;
+          }
+        }
       }
     }
 

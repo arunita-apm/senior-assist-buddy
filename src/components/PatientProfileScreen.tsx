@@ -75,9 +75,9 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
     setTimeout(() => onBack(), 300);
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     posthog.capture("signout_clicked");
-    localStorage.removeItem("userId");
+    await supabase.auth.signOut();
     posthog.reset();
     navigate("/auth", { replace: true });
   };

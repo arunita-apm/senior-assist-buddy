@@ -114,21 +114,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [userRole, setUserRole] = useState<"patient" | "caregiver">("patient");
   const [viewingPatientName, setViewingPatientName] = useState("");
 
-  // ── Load all data from DB using localStorage userId ────────────────────
+  // ── Load all data from DB using Supabase Auth session ────────────────────
 
   const loadData = useCallback(async () => {
-    const savedUserId = localStorage.getItem("userId");
-    if (!savedUserId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       setLoading(false);
       return;
     }
 
-    let uid = savedUserId;
+    const authUser = session.user;
+    let uid = authUser.id;
     setUserId(uid);
     let role: "patient" | "caregiver" = "patient";
     let patientName = "";
 
-    // Check if this user exists
+    // Check if this user exists in public.users
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("*")
@@ -136,19 +137,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .maybeSingle();
 
     if (userError || !userData) {
-      // Invalid userId in localStorage, clear it
-      localStorage.removeItem("userId");
       setLoading(false);
       return;
     }
 
-    // Check if this user is a caregiver for someone
-    const userEmail = userData.email;
-    if (userEmail) {
+    // Check if the user's phone matches any patient's caregiver_phone
+    const userPhone = authUser.phone || userData.phone;
+    if (userPhone) {
       const { data: patientData } = await supabase
         .from("users")
         .select("id, name")
-        .eq("caregiver_email", userEmail)
+        .eq("caregiver_phone", userPhone)
         .neq("id", uid)
         .limit(1)
         .maybeSingle();
@@ -165,9 +164,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setViewingPatientName(patientName);
 
     // Identify user in PostHog
-    posthog.identify(savedUserId, {
+    posthog.identify(authUser.id, {
       name: userData.name,
-      email: userData.email,
+      phone: userPhone,
       role,
       device: navigator.userAgent.includes("Android") ? "Android" : "Other",
     });
@@ -240,7 +239,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     (action) => {
       setUser((prev) => {
         const next = typeof action === "function" ? action(prev) : action;
-        const activeUserId = localStorage.getItem("userId") || userId;
+        const activeUserId = userId;
         if (activeUserId) {
           const dbData: Record<string, any> = {
             name: next.name,
@@ -265,7 +264,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ── Medication CRUD with persistence ──────────────────────────────────
 
   const addMedication = useCallback(async (med: Medication) => {
-    const activeUserId = localStorage.getItem("userId") || userId;
+    const activeUserId = userId;
     if (!activeUserId) return;
 
     const { data, error } = await supabase.from("medications").insert({

@@ -11,115 +11,65 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [phone, setPhone] = useState("+91");
+  const [otp, setOtp] = useState("");
+  const [step, setStep] = useState<"phone" | "otp">("phone");
 
   useEffect(() => {
-    const savedUserId = localStorage.getItem("userId");
-    if (savedUserId) navigate("/", { replace: true });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) navigate("/", { replace: true });
+    });
   }, [navigate]);
 
-  const handleSignIn = async () => {
-    if (!email || !password) {
-      toast({ title: "Missing fields", description: "Please enter email and password.", variant: "destructive" });
+  const handleSendOtp = async () => {
+    const cleanPhone = phone.trim();
+    if (cleanPhone.length < 10) {
+      toast({ title: "Invalid phone", description: "Please enter a valid phone number.", variant: "destructive" });
       return;
     }
 
     setLoading(true);
-    posthog.capture("signin_button_clicked", { method: "custom_email" });
+    posthog.capture("otp_send_clicked", { method: "phone_otp" });
 
     try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", email.trim().toLowerCase())
-        .eq("password", password)
-        .maybeSingle();
-
+      const { error } = await supabase.auth.signInWithOtp({ phone: cleanPhone });
       if (error) throw error;
 
-      if (!data) {
-        toast({ title: "Invalid email or password", description: "Please check your credentials and try again.", variant: "destructive" });
-        return;
-      }
-
-      localStorage.setItem("userId", data.id);
-      posthog.identify(data.id, { name: data.name, email: data.email });
-      posthog.capture("user_signed_in", { method: "custom_email" });
-      navigate("/", { replace: true });
+      toast({ title: "OTP sent!", description: "Check your phone for the verification code." });
+      setStep("otp");
     } catch (error: any) {
-      posthog.capture("error_occurred", {
-        error_type: "auth_error",
-        screen: "auth",
-        error_code: error?.code || "unknown",
-      });
-      toast({
-        title: "Sign in failed",
-        description: error?.message || "Please try again.",
-        variant: "destructive",
-      });
+      posthog.capture("error_occurred", { error_type: "otp_send_error", screen: "auth", error_code: error?.code || "unknown" });
+      toast({ title: "Failed to send OTP", description: error?.message || "Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSignUp = async () => {
-    if (!name.trim() || !email || !password) {
-      toast({ title: "Missing fields", description: "Please fill in all fields.", variant: "destructive" });
-      return;
-    }
-    if (password.length < 6) {
-      toast({ title: "Weak password", description: "Password must be at least 6 characters.", variant: "destructive" });
+  const handleVerifyOtp = async () => {
+    if (otp.length < 6) {
+      toast({ title: "Invalid OTP", description: "Please enter the 6-digit code.", variant: "destructive" });
       return;
     }
 
     setLoading(true);
-    posthog.capture("signup_button_clicked", { method: "custom_email" });
+    posthog.capture("otp_verify_clicked", { method: "phone_otp" });
 
     try {
-      // Check if email already exists
-      const { data: existing } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", email.trim().toLowerCase())
-        .maybeSingle();
-
-      if (existing) {
-        toast({ title: "Email already registered", description: "Please sign in instead.", variant: "destructive" });
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("users")
-        .insert({
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          password,
-          role: "patient",
-        })
-        .select()
-        .single();
-
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: phone.trim(),
+        token: otp,
+        type: "sms",
+      });
       if (error) throw error;
 
-      localStorage.setItem("userId", data.id);
-      posthog.identify(data.id, { name: data.name, email: data.email });
-      posthog.capture("user_signed_up", { method: "custom_email" });
-      toast({ title: "Account created!", description: "Welcome to Guardian." });
-      navigate("/", { replace: true });
+      if (data.session) {
+        posthog.identify(data.session.user.id, { phone: phone.trim() });
+        posthog.capture("user_signed_in", { method: "phone_otp" });
+        navigate("/", { replace: true });
+      }
     } catch (error: any) {
-      posthog.capture("error_occurred", {
-        error_type: "signup_error",
-        screen: "auth",
-        error_code: error?.code || "unknown",
-      });
-      toast({
-        title: "Sign up failed",
-        description: error?.message || "Please try again.",
-        variant: "destructive",
-      });
+      posthog.capture("error_occurred", { error_type: "otp_verify_error", screen: "auth", error_code: error?.code || "unknown" });
+      toast({ title: "Verification failed", description: error?.message || "Invalid OTP. Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -137,44 +87,79 @@ const Auth = () => {
         </div>
 
         <div className="w-full bg-card rounded-2xl border border-border shadow-sm p-6 flex flex-col gap-5">
-          <h2 className="text-lg font-semibold text-foreground text-center">
-            {isSignUp ? "Create Account" : "Welcome"}
-          </h2>
-          <p className="text-sm text-muted-foreground text-center">
-            {isSignUp ? "Sign up to get started" : "Sign in to manage your medications and reminders"}
-          </p>
+          {step === "phone" ? (
+            <>
+              <h2 className="text-lg font-semibold text-foreground text-center">Sign In</h2>
+              <p className="text-sm text-muted-foreground text-center">
+                Enter your phone number to receive a verification code
+              </p>
 
-          <div className="flex flex-col gap-3">
-            {isSignUp && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="name" className="text-foreground">Name</Label>
-                <Input id="name" type="text" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="phone" className="text-foreground">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="+91 98765 43210"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    autoComplete="tel"
+                    className="text-lg tracking-wide"
+                  />
+                </div>
               </div>
-            )}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email" className="text-foreground">Email</Label>
-              <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoCapitalize="none" autoComplete="email" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password" className="text-foreground">Password</Label>
-              <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={isSignUp ? "new-password" : "current-password"} />
-            </div>
-          </div>
 
-          <Button onClick={isSignUp ? handleSignUp : handleSignIn} disabled={loading} className="w-full h-12 rounded-xl text-base font-semibold">
-            {loading ? "Please wait…" : isSignUp ? "Sign Up" : "Sign In"}
-          </Button>
+              <Button onClick={handleSendOtp} disabled={loading} className="w-full h-12 rounded-xl text-base font-semibold">
+                {loading ? "Sending…" : "Send OTP"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-lg font-semibold text-foreground text-center">Verify OTP</h2>
+              <p className="text-sm text-muted-foreground text-center">
+                Enter the 6-digit code sent to <span className="font-medium text-foreground">{phone}</span>
+              </p>
 
-          <p className="text-sm text-muted-foreground text-center">
-            {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-primary font-medium hover:underline"
-            >
-              {isSignUp ? "Sign In" : "Sign Up"}
-            </button>
-          </p>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="otp" className="text-foreground">Verification Code</Label>
+                  <Input
+                    id="otp"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="000000"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    maxLength={6}
+                    className="text-2xl tracking-[0.5em] text-center font-mono"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <Button onClick={handleVerifyOtp} disabled={loading} className="w-full h-12 rounded-xl text-base font-semibold">
+                {loading ? "Verifying…" : "Verify & Sign In"}
+              </Button>
+
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => { setStep("phone"); setOtp(""); }}
+                  className="text-sm text-primary font-medium hover:underline"
+                >
+                  Change number
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={loading}
+                  className="text-sm text-primary font-medium hover:underline disabled:opacity-50"
+                >
+                  Resend OTP
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         <p className="text-xs text-muted-foreground text-center italic">Built with care for seniors</p>

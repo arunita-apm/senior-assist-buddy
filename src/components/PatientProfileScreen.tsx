@@ -18,6 +18,7 @@ import { profileSchema, validateForm } from "@/lib/validation";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { posthog } from "@/lib/posthog";
+import { firebaseAuth } from "@/lib/firebase";
 
 interface PatientProfileScreenProps {
   onBack: () => void;

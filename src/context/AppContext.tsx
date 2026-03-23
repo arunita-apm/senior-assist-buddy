@@ -215,7 +215,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setViewingPatientName(patientName);
 
     // Identify user in PostHog by phone
-    posthog.identify(fullPhone || authUser.id, {
+    posthog.identify(fullPhone || userData.id, {
       name: userData.name,
       phone: fullPhone,
       role,

@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { posthog } from "@/lib/posthog";
+import { firebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "@/lib/firebase";
+import type { ConfirmationResult } from "@/lib/firebase";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -14,12 +15,24 @@ const Auth = () => {
   const [phone, setPhone] = useState("+91");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"phone" | "otp">("phone");
+  const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate("/", { replace: true });
+    // If already logged in via Firebase, skip to dashboard
+    const unsub = firebaseAuth.onAuthStateChanged((user) => {
+      if (user) navigate("/", { replace: true });
     });
+    return unsub;
   }, [navigate]);
+
+  const setupRecaptcha = () => {
+    if (!recaptchaRef.current) {
+      recaptchaRef.current = new RecaptchaVerifier(firebaseAuth, "recaptcha-container", {
+        size: "invisible",
+      });
+    }
+  };
 
   const handleSendOtp = async () => {
     const cleanPhone = phone.trim();
@@ -29,17 +42,20 @@ const Auth = () => {
     }
 
     setLoading(true);
-    posthog.capture("otp_send_clicked", { method: "phone_otp" });
+    posthog.capture("otp_send_clicked", { method: "firebase_phone" });
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({ phone: cleanPhone });
-      if (error) throw error;
-
+      setupRecaptcha();
+      const result = await signInWithPhoneNumber(firebaseAuth, cleanPhone, recaptchaRef.current!);
+      confirmationRef.current = result;
       toast({ title: "OTP sent!", description: "Check your phone for the verification code." });
       setStep("otp");
     } catch (error: any) {
+      console.error("Firebase OTP send error:", error);
       posthog.capture("error_occurred", { error_type: "otp_send_error", screen: "auth", error_code: error?.code || "unknown" });
       toast({ title: "Failed to send OTP", description: error?.message || "Please try again.", variant: "destructive" });
+      // Reset recaptcha on error
+      recaptchaRef.current = null;
     } finally {
       setLoading(false);
     }
@@ -51,23 +67,29 @@ const Auth = () => {
       return;
     }
 
+    if (!confirmationRef.current) {
+      toast({ title: "Session expired", description: "Please resend OTP.", variant: "destructive" });
+      setStep("phone");
+      return;
+    }
+
     setLoading(true);
-    posthog.capture("otp_verify_clicked", { method: "phone_otp" });
+    posthog.capture("otp_verify_clicked", { method: "firebase_phone" });
 
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: phone.trim(),
-        token: otp,
-        type: "sms",
-      });
-      if (error) throw error;
+      const result = await confirmationRef.current.confirm(otp);
+      const fbUser = result.user;
 
-      if (data.session) {
-        posthog.identify(data.session.user.id, { phone: phone.trim() });
-        posthog.capture("user_signed_in", { method: "phone_otp" });
-        navigate("/", { replace: true });
-      }
+      posthog.identify(fbUser.phoneNumber || fbUser.uid, { phone: phone.trim() });
+      posthog.capture("user_signed_in", { method: "firebase_phone" });
+
+      // Store Firebase UID for app context to pick up
+      localStorage.setItem("firebaseUid", fbUser.uid);
+      localStorage.setItem("firebasePhone", fbUser.phoneNumber || phone.trim());
+
+      navigate("/", { replace: true });
     } catch (error: any) {
+      console.error("Firebase OTP verify error:", error);
       posthog.capture("error_occurred", { error_type: "otp_verify_error", screen: "auth", error_code: error?.code || "unknown" });
       toast({ title: "Verification failed", description: error?.message || "Invalid OTP. Please try again.", variant: "destructive" });
     } finally {
@@ -77,6 +99,7 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6">
+      <div id="recaptcha-container" />
       <div className="w-full max-w-sm flex flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-3">
           <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
@@ -93,7 +116,6 @@ const Auth = () => {
               <p className="text-sm text-muted-foreground text-center">
                 Enter your phone number to receive a verification code
               </p>
-
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="phone" className="text-foreground">Phone Number</Label>
@@ -108,7 +130,6 @@ const Auth = () => {
                   />
                 </div>
               </div>
-
               <Button onClick={handleSendOtp} disabled={loading} className="w-full h-12 rounded-xl text-base font-semibold">
                 {loading ? "Sending…" : "Send OTP"}
               </Button>
@@ -119,7 +140,6 @@ const Auth = () => {
               <p className="text-sm text-muted-foreground text-center">
                 Enter the 6-digit code sent to <span className="font-medium text-foreground">{phone}</span>
               </p>
-
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="otp" className="text-foreground">Verification Code</Label>
@@ -136,15 +156,13 @@ const Auth = () => {
                   />
                 </div>
               </div>
-
               <Button onClick={handleVerifyOtp} disabled={loading} className="w-full h-12 rounded-xl text-base font-semibold">
                 {loading ? "Verifying…" : "Verify & Sign In"}
               </Button>
-
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => { setStep("phone"); setOtp(""); }}
+                  onClick={() => { setStep("phone"); setOtp(""); confirmationRef.current = null; recaptchaRef.current = null; }}
                   className="text-sm text-primary font-medium hover:underline"
                 >
                   Change number

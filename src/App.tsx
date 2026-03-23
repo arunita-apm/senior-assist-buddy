@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider } from "./context/AppContext";
-import { supabase } from "@/integrations/supabase/client";
+import { firebaseAuth } from "@/lib/firebase";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -17,17 +17,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthenticated(!!session);
+    const unsub = firebaseAuth.onAuthStateChanged((user) => {
+      setAuthenticated(!!user);
       setChecking(false);
     });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthenticated(!!session);
-      setChecking(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return unsub;
   }, []);
 
   if (checking) return null;

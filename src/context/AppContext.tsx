@@ -194,10 +194,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Multiple patients — show selector (don't load patient data yet)
             role = "caregiver";
             setUserRole(role);
-            setUserId(authUser.id);
+            setUserId(userData.id);
             setUser(dbUserToApp(userData));
 
-            posthog.identify(fullPhone || authUser.id, {
+            posthog.identify(fullPhone || userData.id, {
               name: userData.name,
               phone: fullPhone,
               role,

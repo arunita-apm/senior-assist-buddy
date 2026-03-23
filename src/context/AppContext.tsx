@@ -122,37 +122,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [viewingPatientName, setViewingPatientName] = useState("");
   const [caregiverPatients, setCaregiverPatients] = useState<CaregiverPatientLink[]>([]);
 
-  // ── Load all data from DB using Supabase Auth session ────────────────────
+  // ── Load all data from DB using Firebase Auth ────────────────────
 
   const loadData = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const fbUser = (await import("@/lib/firebase")).firebaseAuth.currentUser;
+    if (!fbUser) {
       setLoading(false);
       return;
     }
 
-    const authUser = session.user;
-    let uid = authUser.id;
-    setUserId(uid);
+    const firebaseUid = fbUser.uid;
+    const firebasePhone = fbUser.phoneNumber || localStorage.getItem("firebasePhone") || "";
     let role: "patient" | "caregiver" = "patient";
     let patientName = "";
 
-    // Check if this user exists in public.users
-    const { data: userData, error: userError } = await supabase
+    // Find user in public.users by phone_number matching Firebase phone
+    const cleanPhone = firebasePhone.replace(/^\+91/, "");
+    const fullPhone = firebasePhone;
+
+    // Try to find user by phone match
+    let userData: any = null;
+    const { data: phoneMatch } = await supabase
       .from("users")
       .select("*")
-      .eq("id", uid)
+      .or(`phone_number.eq.${cleanPhone},phone_number.eq.${fullPhone},phone.eq.${cleanPhone},phone.eq.${fullPhone}`)
       .maybeSingle();
 
-    if (userError || !userData) {
-      setLoading(false);
-      return;
+    if (phoneMatch) {
+      userData = phoneMatch;
+    } else {
+      // Create a new user record for this Firebase user
+      const { data: newUser, error: insertError } = await supabase
+        .from("users")
+        .insert({
+          id: firebaseUid,
+          name: "New User",
+          phone_number: fullPhone,
+          phone: cleanPhone,
+          role: "patient",
+        })
+        .select("*")
+        .single();
+
+      if (insertError || !newUser) {
+        console.error("Failed to create user record:", insertError);
+        setLoading(false);
+        return;
+      }
+      userData = newUser;
     }
 
-    // Check caregiver_links table for this phone
-    const userPhone = authUser.phone || userData.phone || userData.phone_number;
-    const cleanPhone = userPhone?.replace(/^\+91/, "") || "";
-    const fullPhone = userPhone || "";
+    let uid = userData.id;
+    setUserId(uid);
 
     if (cleanPhone || fullPhone) {
       const { data: links } = await supabase

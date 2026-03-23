@@ -183,7 +183,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (links && links.length > 0) {
         // Filter out self-links
-        const otherPatients = links.filter((l: any) => l.patient_id !== authUser.id);
+        const otherPatients = links.filter((l: any) => l.patient_id !== userData.id);
         if (otherPatients.length > 0) {
           setCaregiverPatients(otherPatients);
           if (otherPatients.length === 1) {

@@ -18,20 +18,46 @@ const Auth = () => {
   const confirmationRef = useRef<ConfirmationResult | null>(null);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
+  const clearRecaptcha = () => {
+    try {
+      recaptchaRef.current?.clear();
+    } catch {
+      // ignore stale widget cleanup errors
+    }
+
+    recaptchaRef.current = null;
+
+    const container = document.getElementById("recaptcha-container");
+    if (container) {
+      container.innerHTML = "";
+    }
+  };
+
   useEffect(() => {
     // If already logged in via Firebase, skip to dashboard
     const unsub = firebaseAuth.onAuthStateChanged((user) => {
       if (user) navigate("/", { replace: true });
     });
-    return unsub;
+
+    return () => {
+      unsub();
+      clearRecaptcha();
+    };
   }, [navigate]);
 
   const setupRecaptcha = () => {
     if (!recaptchaRef.current) {
+      const container = document.getElementById("recaptcha-container");
+      if (container) {
+        container.innerHTML = "";
+      }
+
       recaptchaRef.current = new RecaptchaVerifier(firebaseAuth, "recaptcha-container", {
         size: "invisible",
       });
     }
+
+    return recaptchaRef.current;
   };
 
   const handleSendOtp = async () => {
@@ -45,17 +71,21 @@ const Auth = () => {
     posthog.capture("otp_send_clicked", { method: "firebase_phone" });
 
     try {
-      setupRecaptcha();
-      const result = await signInWithPhoneNumber(firebaseAuth, cleanPhone, recaptchaRef.current!);
+      const verifier = setupRecaptcha();
+      const result = await signInWithPhoneNumber(firebaseAuth, cleanPhone, verifier!);
       confirmationRef.current = result;
       toast({ title: "OTP sent!", description: "Check your phone for the verification code." });
       setStep("otp");
     } catch (error: any) {
       console.error("Firebase OTP send error:", error);
       posthog.capture("error_occurred", { error_type: "otp_send_error", screen: "auth", error_code: error?.code || "unknown" });
-      toast({ title: "Failed to send OTP", description: error?.message || "Please try again.", variant: "destructive" });
-      // Reset recaptcha on error
-      recaptchaRef.current = null;
+
+      const description = error?.code === "auth/billing-not-enabled"
+        ? "Firebase phone SMS is still disabled for this project. Please confirm billing is enabled on the exact guardian-c7b7e Firebase/Google Cloud project and wait a few minutes for it to propagate."
+        : error?.message || "Please try again.";
+
+      toast({ title: "Failed to send OTP", description, variant: "destructive" });
+      clearRecaptcha();
     } finally {
       setLoading(false);
     }
@@ -162,7 +192,7 @@ const Auth = () => {
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => { setStep("phone"); setOtp(""); confirmationRef.current = null; recaptchaRef.current = null; }}
+                  onClick={() => { setStep("phone"); setOtp(""); confirmationRef.current = null; clearRecaptcha(); }}
                   className="text-sm text-primary font-medium hover:underline"
                 >
                   Change number

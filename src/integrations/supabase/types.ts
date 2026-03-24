@@ -291,6 +291,7 @@ export type Database = {
           created_at: string | null
           email: string | null
           fcm_token: string | null
+          firebase_uid: string | null
           id: string
           name: string | null
           password: string | null
@@ -310,6 +311,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           fcm_token?: string | null
+          firebase_uid?: string | null
           id?: string
           name?: string | null
           password?: string | null
@@ -329,6 +331,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           fcm_token?: string | null
+          firebase_uid?: string | null
           id?: string
           name?: string | null
           password?: string | null

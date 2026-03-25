@@ -16,7 +16,7 @@ const queryClient = new QueryClient();
 const bridgeFirebaseToSupabase = async (fbUser: import("firebase/auth").User) => {
   // Check if we already have a valid Supabase session
   const { data: { session } } = await supabase.auth.getSession();
-  if (session?.user?.id === fbUser.uid && session.expires_at && session.expires_at * 1000 > Date.now() + 60000) {
+  if (session?.expires_at && session.expires_at * 1000 > Date.now() + 60000) {
     return; // Session still valid
   }
 
@@ -36,8 +36,10 @@ const bridgeFirebaseToSupabase = async (fbUser: import("firebase/auth").User) =>
     return;
   }
 
-  const { access_token, refresh_token } = await resp.json();
+  const { access_token, refresh_token, user_id } = await resp.json();
   await supabase.auth.setSession({ access_token, refresh_token });
+  // Store the Supabase UUID (mapped from Firebase UID) for use in AppContext
+  localStorage.setItem("supabaseUserId", user_id);
 };
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {

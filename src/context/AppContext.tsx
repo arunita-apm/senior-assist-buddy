@@ -125,71 +125,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ── Load all data from DB using Firebase Auth ────────────────────
 
   const loadData = useCallback(async () => {
-    const fbUser = (await import("@/lib/firebase")).firebaseAuth.currentUser;
-    if (!fbUser) {
+    // Wait for Supabase session to be available (set by bridgeFirebaseToSupabase)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.warn("No Supabase session available yet");
       setLoading(false);
       return;
     }
 
-    const firebaseUid = fbUser.uid;
-    const firebasePhone = fbUser.phoneNumber || localStorage.getItem("firebasePhone") || "";
+    const supabaseUid = session.user.id; // Deterministic UUID mapped from Firebase UID
+    const firebasePhone = localStorage.getItem("firebasePhone") || session.user.user_metadata?.phone || "";
     let role: "patient" | "caregiver" = "patient";
     let patientName = "";
 
     const cleanPhone = firebasePhone.replace(/^\+91/, "");
     const fullPhone = firebasePhone;
 
-    // After Supabase session bridge, auth.uid() === firebaseUid
-    // Look up user by Firebase UID (which is now also the Supabase auth user ID)
+    // auth.uid() now returns supabaseUid, so RLS works
+    // The handle_new_user trigger should have already created the user row
     let userData: any = null;
     const { data: uidMatch } = await supabase
       .from("users")
       .select("*")
-      .eq("id", firebaseUid)
+      .eq("id", supabaseUid)
       .maybeSingle();
 
     if (uidMatch) {
       userData = uidMatch;
     } else {
-      // Fallback: find by phone (for users created before Firebase auth)
-      const { data: phoneMatch } = await supabase
+      // Create a new user record — id must match auth.uid() for RLS
+      const { data: newUser, error: insertError } = await supabase
         .from("users")
+        .insert({
+          id: supabaseUid,
+          name: "New User",
+          phone_number: fullPhone,
+          phone: cleanPhone,
+          firebase_uid: localStorage.getItem("firebaseUid") || null,
+          role: "patient",
+        })
         .select("*")
-        .or(`phone_number.eq.${cleanPhone},phone_number.eq.${fullPhone},phone.eq.${cleanPhone},phone.eq.${fullPhone}`)
-        .maybeSingle();
+        .single();
 
-      if (phoneMatch) {
-        userData = phoneMatch;
-        // Update the user's ID to match Firebase UID for consistency
-        // This is a one-time migration for existing users
-        if (phoneMatch.id !== firebaseUid) {
-          console.log("Migrating user ID from", phoneMatch.id, "to Firebase UID", firebaseUid);
-          // We can't change PK easily, so just use the existing ID
-          // The Supabase session still maps auth.uid() to firebaseUid
-          // We need the public.users row ID to match auth.uid()
-          // For now, use the existing DB ID
-        }
-      } else {
-        // Create a new user record with Firebase UID as the ID
-        const { data: newUser, error: insertError } = await supabase
-          .from("users")
-          .insert({
-            id: firebaseUid,
-            name: "New User",
-            phone_number: fullPhone,
-            phone: cleanPhone,
-            role: "patient",
-          })
-          .select("*")
-          .single();
-
-        if (insertError || !newUser) {
-          console.error("Failed to create user record:", insertError);
-          setLoading(false);
-          return;
-        }
-        userData = newUser;
+      if (insertError || !newUser) {
+        console.error("Failed to create user record:", insertError);
+        setLoading(false);
+        return;
       }
+      userData = newUser;
     }
 
     let uid = userData.id;

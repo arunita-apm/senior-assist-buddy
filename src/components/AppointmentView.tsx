@@ -32,7 +32,7 @@ export const AppointmentView = () => {
 
   const resetForm = () => setFormData({ title: "", doctor: "", specialty: "", date: "", time: "", location: "", notes: "" });
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     posthog.capture("add_appointment_clicked");
     if (!formData.doctor.trim() || !formData.date || !formData.time) {
       toast({ title: "Please fill in doctor, date, and time", variant: "destructive" });
@@ -48,10 +48,14 @@ export const AppointmentView = () => {
       notes: formData.notes.trim(),
       reminderMinutesBefore: 60,
     };
-    addAppointment(apt);
+    const success = await addAppointment(apt);
+    if (!success) {
+      toast({ title: "Could not save appointment", description: "Please wait a moment and try again.", variant: "destructive" });
+      return;
+    }
     setIsAddOpen(false);
     resetForm();
-    toast({ description: "Appointment scheduled ✓", duration: 3000, className: "bg-[#E6F7F3] border-[#28BF9C] text-[#28BF9C]" });
+    toast({ description: "Appointment scheduled ✓", duration: 3000 });
   };
 
   const handleDelete = () => {

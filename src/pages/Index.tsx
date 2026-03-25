@@ -26,8 +26,16 @@ const Index = () => {
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(null);
   const [voicePanelOpen, setVoicePanelOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const { userRole, viewingPatientName, caregiverPatients, selectPatient } = useAppContext();
+  const { userRole, viewingPatientName, caregiverPatients, selectPatient, loading } = useAppContext();
   const isCaregiver = userRole === "caregiver";
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-6">
+        <p className="text-sm text-muted-foreground">Syncing your data…</p>
+      </div>
+    );
+  }
 
   // Show patient selector if caregiver with multiple patients and none selected yet
   if (isCaregiver && caregiverPatients.length > 1 && !viewingPatientName) {

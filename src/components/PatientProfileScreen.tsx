@@ -50,19 +50,22 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
     const newAge = parseInt(editAge, 10) || user.age;
     const newPhone = editPhone.trim();
 
-    if (userId) {
-      const { error } = await supabase.from("users").update({
-        name: newName,
-        age: newAge,
-        phone: newPhone,
-        updated_at: new Date().toISOString(),
-      }).eq("id", userId);
+    if (!userId) {
+      toast({ title: "Still syncing your profile", description: "Please wait a moment and try again.", variant: "destructive" });
+      return;
+    }
 
-      if (error) {
-        posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "profile", error_code: error.code });
-        toast({ title: "Failed to update profile", variant: "destructive" });
-        return;
-      }
+    const { error } = await supabase.from("users").update({
+      name: newName,
+      age: newAge,
+      phone: newPhone,
+      updated_at: new Date().toISOString(),
+    }).eq("id", userId);
+
+    if (error) {
+      posthog.capture("error_occurred", { error_type: "supabase_write_failed", screen: "profile", error_code: error.code });
+      toast({ title: "Failed to update profile", variant: "destructive" });
+      return;
     }
 
     setUser((prev) => ({
@@ -72,7 +75,7 @@ export const PatientProfileScreen = ({ onBack }: PatientProfileScreenProps) => {
       phone: newPhone,
     }));
     setEditOpen(false);
-    toast({ description: "Profile updated ✓", duration: 3000, className: "bg-[#E6F7F3] border-[#28BF9C] text-[#28BF9C]" });
+    toast({ description: "Profile updated ✓", duration: 3000 });
     setTimeout(() => onBack(), 300);
   };
 

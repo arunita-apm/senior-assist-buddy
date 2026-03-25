@@ -201,7 +201,7 @@ export const MedicationView = () => {
 
   // ── save ────────────────────────────────────────────────────────────────
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const validation = validateForm(medicationSchema, { name: form.name, dosage: form.dosage, notes: form.notes });
     if (!validation.success) {
       const errs: Record<string, boolean> = {};
@@ -232,23 +232,16 @@ export const MedicationView = () => {
       notes: form.notes.trim(),
     };
 
-    if (editingId) {
-      const existing = medications.find((m) => m.id === editingId);
-      if (existing) med.isActive = existing.isActive;
-      updateMedication(med);
-      toast({
-        description: "Medication updated ✓",
-        duration: 3000,
-        className: "bg-[#E6F7F3] border-[#28BF9C] text-[#28BF9C]",
-      });
-    } else {
-      addMedication(med);
-      toast({
-        description: "Medication added ✓",
-        duration: 3000,
-        className: "bg-[#E6F7F3] border-[#28BF9C] text-[#28BF9C]",
-      });
+    const success = editingId
+      ? await updateMedication({ ...med, isActive: medications.find((m) => m.id === editingId)?.isActive ?? true })
+      : await addMedication(med);
+
+    if (!success) {
+      toast({ title: "Could not save medication", description: "Please wait a moment and try again.", variant: "destructive" });
+      return;
     }
+
+    toast({ description: editingId ? "Medication updated ✓" : "Medication added ✓", duration: 3000 });
     setDrawerOpen(false);
   };
 

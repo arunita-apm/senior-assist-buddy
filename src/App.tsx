@@ -14,12 +14,6 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const bridgeFirebaseToSupabase = async (fbUser: import("firebase/auth").User) => {
-  // Check if we already have a valid Supabase session
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.expires_at && session.expires_at * 1000 > Date.now() + 60000) {
-    return; // Session still valid
-  }
-
   const idToken = await fbUser.getIdToken(true);
   const resp = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/firebase-auth`,
@@ -38,7 +32,6 @@ const bridgeFirebaseToSupabase = async (fbUser: import("firebase/auth").User) =>
 
   const { access_token, refresh_token, user_id } = await resp.json();
   await supabase.auth.setSession({ access_token, refresh_token });
-  // Store the Supabase UUID (mapped from Firebase UID) for use in AppContext
   localStorage.setItem("supabaseUserId", user_id);
 };
 
